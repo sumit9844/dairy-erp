@@ -10,9 +10,9 @@ const FarmerProfile = ({ farmer, onBack }) => {
   useEffect(() => {
     if (farmer) {
       // Fetch Farmer specific records
-      axios.get(`http://localhost:5000/api/settlements/statement?farmerId=${farmer.id}&startDate=2024-01-01&endDate=2026-12-31`)
+      axios.get(`https://dairy-erp-backend.onrender.com/api/settlements/statement?farmerId=${farmer.id}&startDate=2024-01-01&endDate=2026-12-31`)
         .then(res => setMilkData(res.data.transactions));
-      axios.get(`http://localhost:5000/api/advances/${farmer.id}`)
+      axios.get(`https://dairy-erp-backend.onrender.com/api/advances/${farmer.id}`)
         .then(res => setAdvanceData(res.data));
     }
   }, [farmer]);

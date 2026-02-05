@@ -15,7 +15,7 @@ const Login = ({ onLogin }) => {
     
     try {
       // Ensure the URL is exactly this:
-      const res = await axios.post('http://localhost:5000/api/auth/login', { 
+      const res = await axios.post('https://dairy-erp-backend.onrender.com/api/auth/login', { 
         email: email.trim(), 
         password: password 
       });

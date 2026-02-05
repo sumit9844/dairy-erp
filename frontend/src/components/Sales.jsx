@@ -16,19 +16,19 @@ const Sales = () => {
   }, []);
 
   const fetchSales = async () => {
-    const res = await axios.get('http://localhost:5000/api/sales');
+    const res = await axios.get('https://dairy-erp-backend.onrender.com/api/sales');
     setSales(res.data);
   };
 
   const fetchProducts = async () => {
-    const res = await axios.get('http://localhost:5000/api/products');
+    const res = await axios.get('https://dairy-erp-backend.onrender.com/api/products');
     setProducts(res.data);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/sales', formData);
+      await axios.post('https://dairy-erp-backend.onrender.com/api/sales', formData);
       alert("Sale Recorded & Stock Updated!");
       setFormData({ ...formData, customerName: '', quantity: '', rate: '', productName: '' });
       fetchSales();

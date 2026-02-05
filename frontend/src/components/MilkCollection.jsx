@@ -26,8 +26,8 @@ const MilkCollection = () => {
     setLoading(true);
     try {
       const [farmersRes, entriesRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/farmers'),
-        axios.get('http://localhost:5000/api/collections')
+        axios.get('https://dairy-erp-backend.onrender.com/api/farmers'),
+        axios.get('https://dairy-erp-backend.onrender.com/api/collections')
       ]);
       setFarmers(farmersRes.data);
       setRecentEntries(entriesRes.data);
@@ -68,7 +68,7 @@ const MilkCollection = () => {
     if (!selectedFarmer) return alert("Select a farmer first!");
     
     try {
-      await axios.post('http://localhost:5000/api/collections', {
+      await axios.post('https://dairy-erp-backend.onrender.com/api/collections', {
         farmerId: selectedFarmer.id,
         quantity: parseFloat(formData.quantity) || 0,
         // Send 0 if the field is hidden by the RateType logic
@@ -81,7 +81,7 @@ const MilkCollection = () => {
       setSelectedFarmer(null);
       
       // Refresh Recent Logs
-      const res = await axios.get('http://localhost:5000/api/collections');
+      const res = await axios.get('https://dairy-erp-backend.onrender.com/api/collections');
       setRecentEntries(res.data);
       alert("Milk Transaction Recorded!");
     } catch (err) {

@@ -15,14 +15,14 @@ const Expenses = () => {
   }, []);
 
   const fetchExpenses = async () => {
-    const res = await axios.get('http://localhost:5000/api/expenses');
+    const res = await axios.get('https://dairy-erp-backend.onrender.com/api/expenses');
     setExpenses(res.data);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/expenses', formData);
+      await axios.post('https://dairy-erp-backend.onrender.com/api/expenses', formData);
       alert("Expense Recorded!");
       setFormData({ ...formData, amount: '', description: '' });
       fetchExpenses();

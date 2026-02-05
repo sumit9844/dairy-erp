@@ -11,8 +11,8 @@ const Settlement = () => {
   const [compSettings, setCompSettings] = useState(null);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/farmers').then(res => setFarmers(res.data));
-    axios.get('http://localhost:5000/api/settings').then(res => setCompSettings(res.data)); // Fetch this
+    axios.get('https://dairy-erp-backend.onrender.com/api/farmers').then(res => setFarmers(res.data));
+    axios.get('https://dairy-erp-backend.onrender.com/api/settings').then(res => setCompSettings(res.data)); // Fetch this
   }, []);
 
   const generateStatement = async () => {
@@ -21,7 +21,7 @@ const Settlement = () => {
     }
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/settlements/statement?farmerId=${selectedFarmerId}&startDate=${dateRange.start}&endDate=${dateRange.end}`);
+      const res = await axios.get(`https://dairy-erp-backend.onrender.com/api/settlements/statement?farmerId=${selectedFarmerId}&startDate=${dateRange.start}&endDate=${dateRange.end}`);
       setStatement(res.data);
     } catch (err) {
       alert("Error fetching data.");

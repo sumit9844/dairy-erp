@@ -9,7 +9,7 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/settings').then(res => {
+    axios.get('https://dairy-erp-backend.onrender.com/api/settings').then(res => {
       setFormData(res.data);
       setLoading(false);
     });
@@ -18,7 +18,7 @@ const Settings = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/settings', formData);
+      await axios.post('https://dairy-erp-backend.onrender.com/api/settings', formData);
       alert("Business Settings Updated!");
     } catch (err) {
       alert("Error saving settings.");

@@ -17,7 +17,7 @@ const FarmerManager = () => {
 
   const fetchFarmers = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/farmers');
+      const res = await axios.get('https://dairy-erp-backend.onrender.com/api/farmers');
       setFarmers(res.data);
     } catch (err) {
       console.error("Connection Error:", err);
@@ -29,7 +29,7 @@ const FarmerManager = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/farmers', formData);
+      await axios.post('https://dairy-erp-backend.onrender.com/api/farmers', formData);
       alert("Farmer Registered Successfully!");
       // Reset Form
       setFormData({ 

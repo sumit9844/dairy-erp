@@ -18,8 +18,8 @@ const Production = () => {
     setLoading(true);
     try {
       const [prodRes, histRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/products'),
-        axios.get('http://localhost:5000/api/production')
+        axios.get('https://dairy-erp-backend.onrender.com/api/products'),
+        axios.get('https://dairy-erp-backend.onrender.com/api/production')
       ]);
       setProducts(prodRes.data);
       setHistory(histRes.data);
@@ -40,7 +40,7 @@ const Production = () => {
     if (!formData.productName) return alert("Please select a product first!");
 
     try {
-      await axios.post('http://localhost:5000/api/production', formData);
+      await axios.post('https://dairy-erp-backend.onrender.com/api/production', formData);
       alert("Batch Recorded & Stock Updated!");
       setFormData({ ...formData, milkUsed: '', outputQty: '', notes: '' });
       fetchInitialData(); // Refresh history and stock counts

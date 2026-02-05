@@ -10,13 +10,13 @@ const Advances = () => {
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/farmers').then(res => setFarmers(res.data));
+    axios.get('https://dairy-erp-backend.onrender.com/api/farmers').then(res => setFarmers(res.data));
   }, []);
 
   const handleGiveAdvance = async (e) => {
     e.preventDefault();
     if(!selectedFarmer) return alert("Select a farmer");
-    await axios.post('http://localhost:5000/api/advances', {
+    await axios.post('https://dairy-erp-backend.onrender.com/api/advances', {
         farmerId: selectedFarmer.id,
         amount,
         description: desc
@@ -27,7 +27,7 @@ const Advances = () => {
   };
 
   const fetchHistory = async (id) => {
-    const res = await axios.get(`http://localhost:5000/api/advances/${id}`);
+    const res = await axios.get(`https://dairy-erp-backend.onrender.com/api/advances/${id}`);
     setHistory(res.data);
   };
 

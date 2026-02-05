@@ -10,13 +10,13 @@ const Inventory = () => {
   useEffect(() => { fetchProducts(); }, []);
 
   const fetchProducts = async () => {
-    const res = await axios.get('http://localhost:5000/api/products');
+    const res = await axios.get('https://dairy-erp-backend.onrender.com/api/products');
     setProducts(res.data);
   };
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
-    await axios.post('http://localhost:5000/api/products', newP);
+    await axios.post('https://dairy-erp-backend.onrender.com/api/products', newP);
     setNewP({ name: '', unit: 'KG' });
     setShowAdd(false);
     fetchProducts();

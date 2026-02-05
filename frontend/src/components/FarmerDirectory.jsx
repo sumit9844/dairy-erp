@@ -9,7 +9,7 @@ const FarmerDirectory = ({ onSelectFarmer }) => {
   const farmersPerPage = 10;
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/farmers').then(res => setFarmers(res.data));
+    axios.get('https://dairy-erp-backend.onrender.com/api/farmers').then(res => setFarmers(res.data));
   }, []);
 
   const filtered = farmers.filter(f => 
