@@ -1,0 +1,170 @@
+// This is your Final Dairy ERP DNA
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------
+// 1. USER & AUTH
+// -----------------------------------------
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(STAFF)
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  STAFF
+  ACCOUNTANT
+}
+
+// -----------------------------------------
+// 2. FARMER MANAGEMENT
+// -----------------------------------------
+model Farmer {
+  id             String           @id @default(uuid())
+  farmerCode     String           @unique
+  name           String
+  phone          String?
+  address        String?
+  milkType       MilkType         @default(COW)
+  rateType       RateType         @default(FAT_SNF)
+  
+  // Base Pricing Configuration
+  fatRate        Float            @default(0) 
+  snfRate        Float            @default(0) 
+  fixedRate      Float            @default(0) 
+
+  active         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+
+  // Relations
+  collections    MilkCollection[]
+  advances       Advance[]
+}
+
+enum MilkType {
+  COW
+  BUFFALO
+}
+
+enum RateType {
+  FAT_ONLY
+  FAT_SNF
+  FIXED
+}
+
+// -----------------------------------------
+// 3. MILK COLLECTION (THE CORE TRANSACTION)
+// -----------------------------------------
+model MilkCollection {
+  id          String   @id @default(uuid())
+  date        DateTime @default(now())
+  shift       Shift
+  quantity    Float    
+  fat         Float    @default(0)
+  snf         Float    @default(0)
+  rate        Float    
+  totalAmount Float   
+
+  // Relation to Farmer
+  farmer      Farmer   @relation(fields: [farmerId], references: [id])
+  farmerId    String
+}
+
+enum Shift {
+  MORNING
+  EVENING
+}
+
+// -----------------------------------------
+// 4. ADVANCES (LOANS)
+// -----------------------------------------
+model Advance {
+  id          String   @id @default(uuid())
+  date        DateTime @default(now())
+  amount      Float
+  description String?
+  
+  // Relation to Farmer
+  farmer      Farmer   @relation(fields: [farmerId], references: [id])
+  farmerId    String
+}
+
+// -----------------------------------------
+// 5. INVENTORY & PRODUCTION
+// -----------------------------------------
+model Product {
+  id          String   @id @default(uuid())
+  name        String   @unique 
+  unit        String   
+  stock       Float    @default(0)
+  
+  // This is the field Prisma was complaining about
+  sales       Sale[]   
+}
+
+// -----------------------------------------
+// 6. SALES & DISPATCH
+// -----------------------------------------
+model Sale {
+  id           String   @id @default(uuid())
+  date         DateTime @default(now())
+  customerName String   
+  quantity     Float    
+  fat          Float?   @default(0)
+  snf          Float?   @default(0)
+  rate         Float    
+  totalAmount  Float
+
+  // --- THIS BLOCK BELOW IS THE FIX ---
+  // It creates the "Back-Relation" that Prisma requires
+  product      Product? @relation(fields: [productId], references: [id])
+  productId    String?
+  // ------------------------------------
+}
+// -----------------------------------------
+// 7. EXPENSE MANAGEMENT
+// -----------------------------------------
+model Expense {
+  id          String   @id @default(uuid())
+  date        DateTime @default(now())
+  category    String   
+  amount      Float
+  description String?
+}
+
+// -----------------------------------------
+// 8. COMPANY SETTINGS (IDENTITY)
+// -----------------------------------------
+model CompanySettings {
+  id          Int      @id @default(1) 
+  companyName String   @default("My Dairy Farm")
+  ownerName   String?
+  phone       String?
+  address     String?
+  email       String?
+  billNote    String?  @default("Thank you for your business!")
+}
+
+model Production {
+  id           String   @id @default(uuid())
+  date         DateTime @default(now())
+  productName  String   // e.g., Paneer, Ghee, Dahi
+  milkUsed     Float    // Liters used
+  milkType     String   // COW or BUFFALO
+  outputQty    Float    // kg or units produced
+  yield        Float    // (outputQty / milkUsed) * 100
+  notes        String?
+}
