@@ -5,5 +5,6 @@ const farmerController = require('../controllers/farmerController');
 // Routes
 router.post('/', farmerController.createFarmer);     // POST /api/farmers
 router.get('/', farmerController.getAllFarmers);    // GET /api/farmers
+router.put('/:id', farmerController.updateFarmer);
 
 module.exports = router;

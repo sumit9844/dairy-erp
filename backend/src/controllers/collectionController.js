@@ -1,52 +1,56 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// 1. Add a new milk collection
 exports.addCollection = async (req, res) => {
     try {
-        const { farmerId, quantity, fat, snf, shift } = req.body;
-        const farmer = await prisma.farmer.findUnique({ where: { id: farmerId } });
-        
-        if (!farmer) return res.status(404).json({ error: "Farmer not found" });
-
-        let rate = 0;
-        if (farmer.rateType === "FAT_SNF") {
-            rate = (parseFloat(fat) * farmer.fatRate) + (parseFloat(snf) * farmer.snfRate);
-        } else if (farmer.rateType === "FAT_ONLY") {
-            rate = (parseFloat(fat) * farmer.fatRate);
-        } else {
-            rate = farmer.fixedRate;
-        }
-
-        const totalAmount = parseFloat(quantity) * rate;
-
+        const { farmerId, quantity, fat, snf, shift, date } = req.body;
         const collection = await prisma.milkCollection.create({
             data: {
                 farmerId,
                 quantity: parseFloat(quantity),
-                fat: parseFloat(fat) || 0,
-                snf: parseFloat(snf) || 0,
+                fat: parseFloat(fat) || 0, // Now optional
+                snf: parseFloat(snf) || 0, // Now optional
                 shift,
-                rate,
-                totalAmount
+                date: date ? new Date(date) : new Date(),
+                rate: 0, // Placeholders: math happens during settlement
+                totalAmount: 0 
             }
         });
         res.status(201).json(collection);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
-// 2. Get recent collections (This is the one likely causing the crash)
-exports.getRecentCollections = async (req, res) => {
+exports.updateCollection = async (req, res) => {
     try {
-        const collections = await prisma.milkCollection.findMany({
-            take: 10,
-            orderBy: { date: 'desc' },
-            include: { farmer: true }
+        const { id } = req.params;
+        const { quantity, fat, snf, shift, date } = req.body;
+        const updated = await prisma.milkCollection.update({
+            where: { id },
+            data: {
+                quantity: parseFloat(quantity),
+                fat: parseFloat(fat) || 0,
+                snf: parseFloat(snf) || 0,
+                shift,
+                date: new Date(date)
+            }
         });
-        res.json(collections);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+        res.json(updated);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+exports.getCollectionsByDate = async (req, res) => {
+    try {
+        const { date } = req.query; // Expects YYYY-MM-DD
+        const start = new Date(date);
+        start.setHours(0,0,0,0);
+        const end = new Date(date);
+        end.setHours(23,59,59,999);
+
+        const logs = await prisma.milkCollection.findMany({
+            where: { date: { gte: start, lte: end } },
+            include: { farmer: true },
+            orderBy: { date: 'desc' }
+        });
+        res.json(logs);
+    } catch (error) { res.status(500).json({ error: error.message }); }
 };

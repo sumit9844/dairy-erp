@@ -31,3 +31,21 @@ exports.getAllFarmers = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+exports.updateFarmer = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updated = await prisma.farmer.update({
+            where: { id },
+            data: {
+                ...req.body,
+                fatRate: parseFloat(req.body.fatRate) || 0,
+                snfRate: parseFloat(req.body.snfRate) || 0,
+                fixedRate: parseFloat(req.body.fixedRate) || 0,
+            }
+        });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
