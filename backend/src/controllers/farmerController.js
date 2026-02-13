@@ -68,16 +68,26 @@ exports.toggleFarmerStatus = async (req, res) => {
 };
 
 // 5. Hard Delete (Only if no records exist)
+// 5. Hard Delete (Force delete everything)
 exports.deleteFarmer = async (req, res) => {
     try {
         const { id } = req.params;
-        await prisma.farmer.delete({ where: { id } });
-        res.json({ message: "Farmer deleted successfully" });
+
+        // Transaction: Delete related data first, then the farmer
+        await prisma.$transaction([
+            // 1. Delete all milk collections for this farmer
+            prisma.milkCollection.deleteMany({ where: { farmerId: id } }),
+            
+            // 2. Delete all advances/loans for this farmer
+            prisma.advance.deleteMany({ where: { farmerId: id } }),
+
+            // 3. Finally, delete the farmer
+            prisma.farmer.delete({ where: { id } })
+        ]);
+
+        res.json({ message: "Farmer and all related records deleted successfully" });
     } catch (error) {
-        // Prisma Error P2003 means Foreign Key constraint failed (Farmer has milk records)
-        if (error.code === 'P2003') {
-            return res.status(400).json({ error: "Cannot delete: This farmer has financial records. Deactivate them instead." });
-        }
+        console.error("Delete Error:", error);
         res.status(500).json({ error: error.message });
     }
 };
