@@ -14,6 +14,7 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const saleRoutes = require('./routes/saleRoutes');
 const productionRoutes = require('./routes/productionRoutes');
 const productRoutes = require('./routes/productRoutes');
+const backupRoutes = require('./routes/backupRoutes'); 
 
 const app = express();
 
@@ -34,7 +35,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/sales', saleRoutes);
 app.use('/api/production', productionRoutes);
 app.use('/api/products', productRoutes);
-app.use('/api/backup', require('./routes/backupRoutes'));
+app.use('/api/backup', backupRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: "Dairy ERP API is running..." });
