@@ -27,12 +27,14 @@ const Settings = () => {
 
   // Function 1: JSON (System Restore)
   const downloadJSON = () => {
-    window.open('https://dairy-erp-backend.onrender.com/api/backup?type=json', '_blank');
+    // Points explicitly to /json
+    window.open('https://dairy-erp-backend.onrender.com/api/backup/json', '_blank');
   };
 
   // Function 2: CSV (Excel Reports)
   const downloadCSV = () => {
-    window.open('https://dairy-erp-backend.onrender.com/api/backup?type=csv', '_blank');
+    // Points explicitly to /csv
+    window.open('https://dairy-erp-backend.onrender.com/api/backup/csv', '_blank');
   };
 
   if (loading) return <div className="p-10 font-bold text-slate-400">Loading Configuration...</div>;
