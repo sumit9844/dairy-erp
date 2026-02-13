@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { formatBS } from '../utils/dateHelper'; // <--- IMPORTED BS HELPER
 import { 
   ClipboardList, Search, Save, History, 
   User, CheckCircle, Info, Edit3, Check, X, Calendar 
@@ -101,13 +102,20 @@ const MilkCollection = () => {
             <p className="text-sm text-slate-500 font-medium italic">Record quantity now, test quality later</p>
             </div>
         </div>
-        {/* Date Filter */}
-        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
-            <Calendar className="text-blue-500 ml-2" size={18} />
-            <input 
-                type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)}
-                className="bg-transparent font-black text-slate-700 outline-none pr-4"
-            />
+        
+        {/* Date Filter with BS Display */}
+        <div className="flex items-center gap-2">
+            <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+                <Calendar className="text-blue-500 ml-2" size={18} />
+                <input 
+                    type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)}
+                    className="bg-transparent font-black text-slate-700 outline-none"
+                />
+                {/* BS DATE BADGE */}
+                <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black border border-blue-100">
+                    {formatBS(logDate)} BS
+                </div>
+            </div>
         </div>
       </div>
 
@@ -188,7 +196,10 @@ const MilkCollection = () => {
           {/* ADMIN EDITABLE HISTORY LOG */}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6 border-b flex items-center justify-between">
-                <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">Intake Logs: {logDate}</h3>
+                <div>
+                    <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">Intake Logs: {logDate}</h3>
+                    <p className="text-[10px] font-bold text-blue-500 uppercase mt-1">Nepali Date: {formatBS(logDate)}</p>
+                </div>
                 <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full">ADMIN EDIT MODE</span>
             </div>
             <div className="overflow-x-auto">

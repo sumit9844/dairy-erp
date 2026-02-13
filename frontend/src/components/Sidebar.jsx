@@ -28,6 +28,7 @@ const Sidebar = ({ currentView, setCurrentView }) => {
     { id: 'advances', label: 'Advances/Loans', icon: <Landmark size={20}/> },
     { id: 'expenses', label: 'Expense Tracker', icon: <Wallet size={20}/> },
     { id: 'settings', label: 'Settings', icon: <Settings size={20}/> },
+    { id: 'reports', label: 'Analytics Reports', icon: <FileText size={20}/> },
   ];
 
   return (

@@ -13,6 +13,7 @@ import Sales from './components/Sales';
 import Login from './components/Login';
 import Production from './components/Production';
 import Inventory from './components/Inventory'; // <--- ADDED
+import Reports from './components/Reports'; // 1. Import
 
 function App() {
   const [user, setUser] = useState(null);
@@ -48,6 +49,7 @@ function App() {
       case 'production': return <Production />;
       case 'inventory': return <Inventory />; // <--- ADDED
       case 'settings': return <Settings />;
+      case 'reports': return <Reports />; // 2. Add Case
       default: return <Dashboard />;
     }
   };

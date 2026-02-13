@@ -1,125 +1,220 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { formatBS } from '../utils/dateHelper';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell
 } from 'recharts';
 import { 
   TrendingUp, Users, Droplets, IndianRupee, 
-  Package, ArrowUpRight, Activity, PieChart as PieIcon
+  Package, ArrowUpRight, ArrowDownRight, Activity, Calendar, Wallet, FlaskConical, Filter
 } from 'lucide-react';
 
 const Dashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // State for Filters
+  const [timeRange, setTimeRange] = useState('today');
+  const [customDate, setCustomDate] = useState(''); 
 
   useEffect(() => {
-    axios.get('https://dairy-erp-backend.onrender.com/api/dashboard/stats')
-      .then(res => { setData(res.data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
+    fetchData();
+  }, [timeRange, customDate]);
 
-  if (loading || !data) return <div className="p-10 text-center font-bold text-slate-400">Loading Business Intelligence...</div>;
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      let url = `https://dairy-erp-backend.onrender.com/api/dashboard/stats?range=${timeRange}`;
+      if (customDate) {
+        url = `https://dairy-erp-backend.onrender.com/api/dashboard/stats?customDate=${customDate}`;
+      }
+      const res = await axios.get(url);
+      setData(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const netProfit = data.finance.revenue - (data.milk.totalCost + data.finance.expenses);
+  const handleRangeClick = (range) => {
+    setCustomDate('');
+    setTimeRange(range);
+  };
+
+  const handleDateChange = (e) => {
+    setCustomDate(e.target.value);
+    setTimeRange('custom');
+  };
+
+  if (loading) return <div className="p-20 text-center font-bold text-slate-400 animate-pulse">ANALYZING DATA...</div>;
+  if (!data || !data.milk || !data.finance) return <div className="p-20 text-center text-red-400">Data Unavailable</div>;
+
+  const chartData = data.trends?.map(item => ({
+    ...item,
+    bsDate: formatBS(item.date),
+    displayDate: formatBS(item.date)?.split('-').slice(1).join('/')
+  })) || [];
 
   return (
-    <div className="w-full animate-in fade-in duration-700 space-y-8">
+    <div className="w-full animate-in fade-in duration-700 space-y-8 pb-10">
       
-      {/* 1. TOP METRICS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <MetricCard title="Total Volume" value={`${data.milk.totalLiters.toFixed(1)} L`} icon={<Droplets />} color="blue" />
-        <MetricCard title="Milk Cost" value={`₹${data.milk.totalCost.toLocaleString()}`} icon={<IndianRupee />} color="orange" />
-        <MetricCard title="Total Revenue" value={`₹${data.finance.revenue.toLocaleString()}`} icon={<TrendingUp />} color="indigo" />
-        <MetricCard title="Net Profit" value={`₹${netProfit.toLocaleString()}`} icon={<Activity />} color={netProfit >= 0 ? "emerald" : "red"} />
+      {/* 1. HEADER & FILTERS */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight uppercase">System Overview</h1>
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-500 mt-1">
+             <Calendar size={16} className="text-blue-500" />
+             <span>{formatBS(new Date())} (BS)</span>
+             <span className="text-slate-300">|</span>
+             <span>{new Date().toLocaleDateString('en-GB')} (AD)</span>
+          </div>
+        </div>
+
+        {/* TIME CONTROLS */}
+        <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-2 rounded-3xl shadow-sm border border-slate-200">
+            <div className="flex bg-slate-50 rounded-2xl p-1">
+                {['today', 'week', 'month', 'year'].map((range) => (
+                    <button key={range} onClick={() => handleRangeClick(range)}
+                        className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${timeRange === range && !customDate ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>
+                        {range}
+                    </button>
+                ))}
+            </div>
+            <div className="h-8 w-px bg-slate-200 hidden md:block"></div>
+            <div className="relative flex items-center px-4">
+                <span className="text-[10px] font-black text-slate-400 uppercase mr-3">Pick Date:</span>
+                <input 
+                    type="date" 
+                    value={customDate} 
+                    onChange={handleDateChange}
+                    className="bg-slate-100 border border-slate-200 text-slate-800 text-xs font-bold rounded-lg px-3 py-2 outline-none focus:border-blue-500"
+                />
+            </div>
+        </div>
       </div>
 
+      {/* 2. KPI CARDS (UPDATED: 5 COLUMNS) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        
+        {/* NEW CARD: TOTAL MILK */}
+        <MetricCard 
+            title={`Collection (${customDate ? 'Day' : timeRange})`} 
+            value={`${(data.milk.totalLiters ?? 0).toFixed(1)} L`} 
+            icon={<Droplets />} 
+            color="blue" 
+        />
+
+        <MetricCard 
+            title="Net Profit" 
+            value={`₹${(data.finance.netProfit ?? 0).toLocaleString()}`} 
+            icon={<Activity />} 
+            color={(data.finance.netProfit ?? 0) >= 0 ? "emerald" : "red"} 
+            isProfit={true} 
+        />
+        
+        <MetricCard 
+            title="Total Revenue" 
+            value={`₹${(data.finance.revenue ?? 0).toLocaleString()}`} 
+            icon={<TrendingUp />} 
+            color="indigo" 
+        />
+        
+        <MetricCard 
+            title="Pending Payments" 
+            value={`₹${(data.finance.pendingPayments ?? 0).toLocaleString()}`} 
+            icon={<Wallet />} 
+            color="red" 
+        />
+        
+        <MetricCard 
+            title="Avg Quality" 
+            value={`F:${(data.milk.avgFat ?? 0).toFixed(1)} / S:${(data.milk.avgSnf ?? 0).toFixed(1)}`} 
+            icon={<FlaskConical />} 
+            color="purple" 
+        />
+      </div>
+
+      {/* 3. TRENDS & INVENTORY */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* 2. COLLECTION TREND CHART (Big visual) */}
         <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
           <div className="flex justify-between items-center mb-8">
-            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">7-Day Milk Collection Trend</h3>
-            <span className="text-[10px] bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-bold">LITERS / DAY</span>
+            <div>
+                <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Collection Trend</h3>
+                <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">
+                    {customDate ? `Specific Date: ${customDate}` : `Timeline: Last ${timeRange}`}
+                </p>
+            </div>
+            <span className="text-[10px] bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-bold">LITERS</span>
           </div>
-          <div className="h-72 w-full">
+          <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.trends}>
-                <defs>
-                  <linearGradient id="colorLiters" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
+              <AreaChart data={chartData}>
+                <defs><linearGradient id="colorLiters" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} dy={10} />
+                <XAxis dataKey="displayDate" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} dy={10} />
                 <YAxis hide />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
-                />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} labelFormatter={(label, payload) => payload[0]?.payload?.bsDate || label} />
                 <Area type="monotone" dataKey="liters" stroke="#3b82f6" strokeWidth={4} fillOpacity={1} fill="url(#colorLiters)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* 3. STOCK LEVELS BAR CHART */}
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-8">Inventory Stock</h3>
-            <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.inventory}>
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9, fontWeight: 800}} />
-                        <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '12px'}} />
-                        <Bar dataKey="stock" radius={[10, 10, 10, 10]} barSize={30}>
-                            {data.inventory.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.stock > 10 ? '#10b981' : '#f43f5e'} />
-                            ))}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
+        {/* FINANCIAL SUMMARY SIDEBAR */}
+        <div className="bg-[#1e293b] rounded-[2.5rem] p-10 text-white shadow-2xl flex flex-col justify-between">
+            <div>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-8">P&L ({customDate || timeRange})</h3>
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center py-4 border-b border-slate-700">
+                        <span className="text-sm font-bold text-slate-400">Total Sales</span>
+                        <span className="font-black text-emerald-400">+ ₹{(data.finance.revenue ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-4 border-b border-slate-700">
+                        <span className="text-sm font-bold text-slate-400">Milk Purchase</span>
+                        <span className="font-black text-red-400">- ₹{(data.milk.totalCost ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-4 border-b border-slate-700">
+                        <span className="text-sm font-bold text-slate-400">Op. Expenses</span>
+                        <span className="font-black text-red-400">- ₹{(data.finance.expenses ?? 0).toLocaleString()}</span>
+                    </div>
+                </div>
+            </div>
+            <div className="mt-8 p-6 bg-white/5 rounded-3xl border border-white/10">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Net Business Profit</p>
+                <h4 className={`text-4xl font-black ${(data.finance.netProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-500'}`}>
+                    ₹{(data.finance.netProfit ?? 0).toLocaleString()}
+                </h4>
             </div>
         </div>
-
       </div>
 
+      {/* 5. INVENTORY & MILK TYPE */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* 4. MILK TYPE DISTRIBUTION */}
         <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-8">Milk Composition</h3>
-            <div className="flex items-center gap-10">
-                <div className="flex-1 space-y-6">
-                    <MilkBar label="Cow Milk" qty={data.milk.cowLiters} total={data.milk.totalLiters} color="bg-orange-400" />
-                    <MilkBar label="Buffalo Milk" qty={data.milk.buffaloLiters} total={data.milk.totalLiters} color="bg-indigo-600" />
-                </div>
-                <div className="w-32 h-32 bg-slate-50 rounded-full flex flex-col items-center justify-center border-4 border-white shadow-inner">
-                    <PieIcon className="text-slate-300 mb-1" size={20} />
-                    <span className="text-xl font-black text-slate-700">{data.milk.totalLiters.toFixed(0)}</span>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase">Total Ltrs</span>
-                </div>
+            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-8">Milk Source Split</h3>
+            <div className="space-y-8">
+                <MilkBar label="Cow Milk" qty={data.milk.cowLiters ?? 0} total={data.milk.totalLiters ?? 0} color="bg-orange-400" icon="🐄" />
+                <MilkBar label="Buffalo Milk" qty={data.milk.buffaloLiters ?? 0} total={data.milk.totalLiters ?? 0} color="bg-indigo-600" icon="🐃" />
             </div>
         </div>
 
-        {/* 5. SYSTEM STATUS & QUICK INFO */}
-        <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white flex flex-col justify-between">
-            <div className="flex justify-between items-start">
-                <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Farmer Network</p>
-                    <h4 className="text-4xl font-black">{data.milk.farmerCount} <span className="text-sm font-bold text-slate-500">Active Suppliers</span></h4>
-                </div>
-                <div className="bg-emerald-500/20 text-emerald-400 p-3 rounded-2xl border border-emerald-500/20">
-                    <Users size={24} />
-                </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mt-8">
-                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Avg. Purchase Rate</p>
-                    <p className="text-lg font-black text-blue-400">₹{data.milk.avgRate.toFixed(2)}</p>
-                </div>
-                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Operational Expense</p>
-                    <p className="text-lg font-black text-red-400">₹{data.finance.expenses}</p>
-                </div>
+        <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
+                <Package size={16}/> Inventory
+            </h3>
+            <div className="grid grid-cols-3 gap-4">
+                {data.inventory?.map((item, i) => (
+                    <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                        <p className="text-[9px] font-black text-slate-400 uppercase truncate mb-1">{item.name}</p>
+                        <p className={`text-lg font-black ${item.stock > 0 ? 'text-slate-800' : 'text-red-400'}`}>
+                            {item.stock} <span className="text-[9px] opacity-50">{item.unit}</span>
+                        </p>
+                    </div>
+                ))}
+                {(!data.inventory || data.inventory.length === 0) && <p className="text-xs text-slate-400 italic col-span-3">No stock data available</p>}
             </div>
         </div>
       </div>
@@ -127,35 +222,26 @@ const Dashboard = () => {
   );
 };
 
-// UI Components
-const MetricCard = ({ title, value, icon, color }) => {
-    const colors = {
-        blue: "text-blue-600 bg-blue-50",
-        orange: "text-orange-600 bg-orange-50",
-        indigo: "text-indigo-600 bg-indigo-50",
-        emerald: "text-emerald-600 bg-emerald-50",
-        red: "text-red-600 bg-red-50"
-    };
+const MetricCard = ({ title, value, icon, color, isProfit }) => {
+    const colors = { blue: "bg-blue-50 text-blue-600", orange: "bg-orange-50 text-orange-600", indigo: "bg-indigo-50 text-indigo-600", emerald: "bg-emerald-50 text-emerald-600", red: "bg-red-50 text-red-600", purple: "bg-purple-50 text-purple-600" };
     return (
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-            <div className={`w-12 h-12 rounded-2xl ${colors[color]} flex items-center justify-center mb-4`}>
-                {React.cloneElement(icon, { size: 24 })}
-            </div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{title}</p>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">{value}</h2>
+        <div className={`p-6 rounded-[2rem] shadow-sm border transition-all hover:shadow-lg ${isProfit ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+            <div className={`w-12 h-12 rounded-2xl ${colors[color]} flex items-center justify-center mb-4`}>{React.cloneElement(icon, { size: 24 })}</div>
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isProfit ? 'text-slate-500' : 'text-slate-400'}`}>{title}</p>
+            <h2 className={`text-3xl font-black tracking-tight ${isProfit ? 'text-white' : 'text-slate-800'}`}>{value}</h2>
         </div>
     );
 };
 
-const MilkBar = ({ label, qty, total, color }) => {
+const MilkBar = ({ label, qty, total, color, icon }) => {
     const pct = total > 0 ? (qty / total) * 100 : 0;
     return (
         <div>
             <div className="flex justify-between text-[10px] font-black uppercase mb-2">
-                <span className="text-slate-500">{label}</span>
+                <span className="text-slate-500 flex items-center gap-2 text-lg">{icon} {label}</span>
                 <span className="text-slate-800">{qty.toFixed(1)} L ({pct.toFixed(0)}%)</span>
             </div>
-            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
                 <div className={`h-full ${color} transition-all duration-1000`} style={{ width: `${pct}%` }} />
             </div>
         </div>
