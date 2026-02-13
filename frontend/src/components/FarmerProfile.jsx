@@ -4,7 +4,7 @@ import { formatBS } from '../utils/dateHelper';
 import { 
   ArrowLeft, Droplets, Landmark, History, 
   Settings, Save, Phone, MapPin, CheckCircle2, 
-  Edit3, Check, X, User
+  Edit3, Check, X, User, AlertTriangle, Trash2, Power
 } from 'lucide-react';
 
 const FarmerProfile = ({ farmer, onBack }) => {
@@ -12,6 +12,9 @@ const FarmerProfile = ({ farmer, onBack }) => {
   const [advanceData, setAdvanceData] = useState([]);
   const [activeTab, setActiveTab] = useState('milk');
   const [loading, setLoading] = useState(true);
+  
+  // Local state to track active status immediately without reload
+  const [isActive, setIsActive] = useState(farmer.active);
 
   // States for Editing Milk Records
   const [editingMilkId, setEditingMilkId] = useState(null);
@@ -25,6 +28,7 @@ const FarmerProfile = ({ farmer, onBack }) => {
 
   useEffect(() => {
     if (farmer) {
+      setIsActive(farmer.active);
       setEditForm({
         name: farmer.name || '',
         phone: farmer.phone || '',
@@ -51,39 +55,61 @@ const FarmerProfile = ({ farmer, onBack }) => {
     setLoading(false);
   };
 
-  // --- DYNAMIC CALCULATION ENGINE ---
+  // --- ACTIONS ---
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(`https://dairy-erp-backend.onrender.com/api/farmers/${farmer.id}`, editForm);
+      alert("Farmer Profile & Rates Updated Successfully!");
+    } catch (err) {
+      alert("Failed to update profile.");
+    }
+  };
+
+  const toggleStatus = async () => {
+    const action = isActive ? "DEACTIVATE" : "ACTIVATE";
+    if(!window.confirm(`Are you sure you want to ${action} this farmer?`)) return;
+
+    try {
+        await axios.patch(`https://dairy-erp-backend.onrender.com/api/farmers/${farmer.id}/status`, { active: !isActive });
+        setIsActive(!isActive);
+        alert(`Farmer ${action}D successfully!`);
+    } catch (err) { alert("Error changing status"); }
+  };
+
+  const handleDelete = async () => {
+    const confirmMsg = "WARNING: This will permanently delete the farmer.\n\nIf they have milk records, the system will block this action to preserve financial history.\n\nAre you sure?";
+    if(!window.confirm(confirmMsg)) return;
+
+    try {
+        await axios.delete(`https://dairy-erp-backend.onrender.com/api/farmers/${farmer.id}`);
+        alert("Farmer Deleted Permanently.");
+        onBack(); // Go back to list
+    } catch (err) {
+        alert(err.response?.data?.error || "Cannot delete farmer with existing records. Please Deactivate instead.");
+    }
+  };
+
+  // --- DYNAMIC CALCULATION ENGINE (Same as before) ---
   const calculateItemTotal = (record) => {
-    // If we are currently editing this row, calculate based on the NEW values typed
     const isEditing = editingMilkId === record.id;
     const qty = parseFloat(isEditing ? milkEditData.quantity : record.quantity) || 0;
     const fat = parseFloat(isEditing ? milkEditData.fat : record.fat) || 0;
     const snf = parseFloat(isEditing ? milkEditData.snf : record.snf) || 0;
 
-    // Get rates from the farmer prop (Current configuration)
     const fRate = parseFloat(farmer.fatRate) || 0;
     const sRate = parseFloat(farmer.snfRate) || 0;
     const fixRate = parseFloat(farmer.fixedRate) || 0;
 
     let total = 0;
-
-    if (farmer.rateType === 'FIXED') {
-        // Simple: Liters * Fixed Price
-        total = qty * fixRate;
-    } else if (farmer.rateType === 'FAT_ONLY') {
-        // Fat Based: Liters * (Fat * PricePerFat)
-        // Example: 5L * (4.0 fat * 10rs) = 200
-        const ratePerLiter = fat * fRate;
-        total = qty * ratePerLiter;
-    } else if (farmer.rateType === 'FAT_SNF') {
-        // Combined: Liters * ((Fat * Price) + (SNF * Price))
-        const ratePerLiter = (fat * fRate) + (snf * sRate);
-        total = qty * ratePerLiter;
-    }
+    if (farmer.rateType === 'FIXED') total = qty * fixRate;
+    else if (farmer.rateType === 'FAT_ONLY') total = qty * (fat * fRate);
+    else if (farmer.rateType === 'FAT_SNF') total = qty * ((fat * fRate) + (snf * sRate));
 
     return Math.round(total);
   };
 
-  // --- HANDLERS ---
   const startMilkEdit = (record) => {
     setEditingMilkId(record.id);
     setMilkEditData({ quantity: record.quantity, fat: record.fat, snf: record.snf });
@@ -95,23 +121,9 @@ const FarmerProfile = ({ farmer, onBack }) => {
       setEditingMilkId(null);
       fetchFarmerData(); 
       alert("Milk record updated!");
-    } catch (err) {
-      alert("Update failed");
-    }
+    } catch (err) { alert("Update failed"); }
   };
 
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.put(`https://dairy-erp-backend.onrender.com/api/farmers/${farmer.id}`, editForm);
-      alert("Farmer Profile & Rates Updated Successfully!");
-      window.location.reload(); // Reload to apply new rates to calculations immediately
-    } catch (err) {
-      alert("Failed to update profile.");
-    }
-  };
-
-  // Calculate Grand Totals for Sidebar
   const totalVolume = milkData.reduce((acc, curr) => acc + curr.quantity, 0);
   const grossEarnings = milkData.reduce((acc, curr) => acc + calculateItemTotal(curr), 0);
   const netOutstanding = advanceData.reduce((acc, curr) => acc + curr.amount, 0);
@@ -127,6 +139,7 @@ const FarmerProfile = ({ farmer, onBack }) => {
         <div>
           <div className="flex items-center gap-3">
              <h1 className="text-4xl font-black text-slate-800 tracking-tight">{farmer.name}</h1>
+             {!isActive && <span className="bg-red-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">INACTIVE</span>}
              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${farmer.milkType === 'COW' ? 'bg-orange-100 text-orange-600' : 'bg-indigo-100 text-indigo-600'}`}>
                 {farmer.milkType} Supplier
              </span>
@@ -148,11 +161,11 @@ const FarmerProfile = ({ farmer, onBack }) => {
                 <div className="space-y-4">
                     <div className="flex items-center gap-3">
                         <Phone size={16} className="text-blue-400" />
-                        <span className="text-sm font-bold">{farmer.phone || 'N/A'}</span>
+                        <span className="text-sm font-bold">{editForm.phone || 'N/A'}</span>
                     </div>
                     <div className="flex items-start gap-3">
                         <MapPin size={16} className="text-blue-400 mt-1" />
-                        <span className="text-sm font-bold opacity-80 leading-relaxed">{farmer.address || 'No Address'}</span>
+                        <span className="text-sm font-bold opacity-80 leading-relaxed">{editForm.address || 'No Address'}</span>
                     </div>
                 </div>
             </div>
@@ -163,10 +176,11 @@ const FarmerProfile = ({ farmer, onBack }) => {
             <div className="flex bg-slate-50/50 border-b">
                 <TabBtn active={activeTab === 'milk'} onClick={() => setActiveTab('milk')} label="Milk Records" icon={<Droplets size={16}/>} />
                 <TabBtn active={activeTab === 'advances'} onClick={() => setActiveTab('advances')} label="Advances" icon={<History size={16}/>} />
-                <TabBtn active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} label="Edit Profile & Rates" icon={<Settings size={16}/>} />
+                <TabBtn active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} label="Edit & Actions" icon={<Settings size={16}/>} />
             </div>
 
             <div className="p-10 flex-1 min-h-[500px]">
+                {/* MILK TAB */}
                 {activeTab === 'milk' && (
                     <div className="animate-in fade-in duration-300">
                         <table className="w-full text-left">
@@ -190,7 +204,6 @@ const FarmerProfile = ({ farmer, onBack }) => {
                                                 </span>
                                             </div>
                                         </td>
-                                        
                                         <td className="py-5 text-center">
                                             {editingMilkId === m.id ? (
                                                 <input type="number" className="w-20 p-2 border rounded-xl text-center bg-blue-50 border-blue-200" 
@@ -199,8 +212,6 @@ const FarmerProfile = ({ farmer, onBack }) => {
                                                 <span className="text-blue-600 font-black">{m.quantity.toFixed(2)} L</span>
                                             )}
                                         </td>
-
-                                        {/* REMOVED RATE COLUMN, ONLY FAT/SNF */}
                                         <td className="py-5 text-center">
                                             {editingMilkId === m.id ? (
                                                 <div className="flex gap-2 justify-center">
@@ -211,16 +222,13 @@ const FarmerProfile = ({ farmer, onBack }) => {
                                                 </div>
                                             ) : (
                                                 <span className={`text-xs font-black ${m.fat === 0 && farmer.rateType !== 'FIXED' ? 'text-red-400 italic' : 'text-slate-400'}`}>
-                                                    {farmer.rateType === 'FIXED' ? 'Fixed Rate' : (m.fat > 0 ? `${m.fat} / ${m.snf}` : 'Missing Quality')}
+                                                    {farmer.rateType === 'FIXED' ? 'Fixed Rate' : (m.fat > 0 ? `${m.fat} / ${m.snf}` : 'Missing')}
                                                 </span>
                                             )}
                                         </td>
-
-                                        {/* DYNAMIC TOTAL CALCULATION */}
                                         <td className="py-5 text-right font-black text-lg">
                                             ₹{calculateItemTotal(m).toLocaleString()}
                                         </td>
-
                                         <td className="py-5 text-right">
                                             {editingMilkId === m.id ? (
                                                 <div className="flex justify-end gap-2">
@@ -228,9 +236,7 @@ const FarmerProfile = ({ farmer, onBack }) => {
                                                     <button onClick={() => setEditingMilkId(null)} className="p-2 bg-slate-100 text-slate-400 rounded-lg hover:bg-slate-200"><X size={16}/></button>
                                                 </div>
                                             ) : (
-                                                <button onClick={() => startMilkEdit(m)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
-                                                    <Edit3 size={16}/>
-                                                </button>
+                                                <button onClick={() => startMilkEdit(m)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit3 size={16}/></button>
                                             )}
                                         </td>
                                     </tr>
@@ -241,7 +247,7 @@ const FarmerProfile = ({ farmer, onBack }) => {
                     </div>
                 )}
 
-                {/* ADVANCES TAB (No Changes) */}
+                {/* ADVANCES TAB */}
                 {activeTab === 'advances' && (
                     <div className="animate-in fade-in duration-300">
                         <table className="w-full text-left">
@@ -251,7 +257,7 @@ const FarmerProfile = ({ farmer, onBack }) => {
                             <tbody className="divide-y divide-slate-50">
                                 {advanceData.map(a => (
                                     <tr key={a.id} className="text-sm font-bold text-slate-700 hover:bg-slate-50/50">
-                                        <td className="py-5">{formatBS(a.date)} (BS)<span className="block text-[10px] font-normal text-slate-400">{new Date(a.date).toLocaleDateString()}</span></td>
+                                        <td className="py-5">{formatBS(a.date)} (BS)</td>
                                         <td className="py-5 text-slate-500 font-medium">{a.description || 'General Advance'}</td>
                                         <td className="py-5 text-right text-red-600 font-black text-lg">₹{a.amount.toLocaleString()}</td>
                                     </tr>
@@ -261,7 +267,7 @@ const FarmerProfile = ({ farmer, onBack }) => {
                     </div>
                 )}
 
-                {/* SETTINGS TAB (Same as before) */}
+                {/* SETTINGS & DANGER ZONE TAB */}
                 {activeTab === 'settings' && (
                     <div className="animate-in fade-in zoom-in-95 duration-300 max-w-2xl">
                         <form onSubmit={handleUpdateProfile} className="space-y-8">
@@ -269,8 +275,8 @@ const FarmerProfile = ({ farmer, onBack }) => {
                                 <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2"><User size={16}/> Personal Info</h4>
                                 <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase">Full Name</label><input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-800" /></div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase">Phone Number</label><input value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-800" /></div>
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase">Village / Address</label><input value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-800" /></div>
+                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase">Phone</label><input value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-800" /></div>
+                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase">Address</label><input value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-800" /></div>
                                 </div>
                             </div>
                             <div className="space-y-4">
@@ -282,8 +288,34 @@ const FarmerProfile = ({ farmer, onBack }) => {
                                     <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase">Fixed Price (₹)</label><input type="number" step="0.01" value={editForm.fixedRate} onChange={e => setEditForm({...editForm, fixedRate: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-blue-600" /></div>
                                 </div>
                             </div>
-                            <div className="pt-6 border-t border-slate-100"><button type="submit" className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 group"><CheckCircle2 size={22} className="group-hover:rotate-12 transition-transform" /> SAVE CHANGES</button></div>
+                            <button type="submit" className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">
+                                <CheckCircle2 size={22} /> SAVE CHANGES
+                            </button>
                         </form>
+
+                        {/* DANGER ZONE */}
+                        <div className="mt-12 pt-8 border-t-2 border-slate-100">
+                            <h4 className="text-xs font-black text-red-600 uppercase tracking-widest flex items-center gap-2 mb-6"><AlertTriangle size={16}/> Danger Zone</h4>
+                            
+                            <div className="flex gap-4">
+                                <button onClick={toggleStatus} className={`flex-1 py-4 rounded-2xl font-black border-2 transition-all ${isActive ? 'border-orange-200 text-orange-600 hover:bg-orange-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}>
+                                    <div className="flex flex-col items-center gap-1">
+                                        <Power size={20} />
+                                        <span>{isActive ? 'DEACTIVATE ACCOUNT' : 'ACTIVATE ACCOUNT'}</span>
+                                    </div>
+                                </button>
+
+                                <button onClick={handleDelete} className="flex-1 py-4 rounded-2xl font-black border-2 border-red-100 text-red-600 hover:bg-red-50 transition-all">
+                                    <div className="flex flex-col items-center gap-1">
+                                        <Trash2 size={20} />
+                                        <span>PERMANENT DELETE</span>
+                                    </div>
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-bold text-center mt-4 uppercase">
+                                * Deactivating hides the farmer from daily collection lists but keeps history. Deleting removes everything.
+                            </p>
+                        </div>
                     </div>
                 )}
             </div>

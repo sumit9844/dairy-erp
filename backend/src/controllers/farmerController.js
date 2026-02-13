@@ -32,6 +32,7 @@ exports.getAllFarmers = async (req, res) => {
     }
 };
 
+// 3. Update Farmer
 exports.updateFarmer = async (req, res) => {
     try {
         const { id } = req.params;
@@ -46,6 +47,37 @@ exports.updateFarmer = async (req, res) => {
         });
         res.json(updated);
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+}; // <--- THIS CLOSING BRACE WAS MISSING/MISPLACED IN YOUR CODE
+
+// 4. Toggle Active Status (Soft Delete)
+exports.toggleFarmerStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { active } = req.body; // true or false
+        
+        const updated = await prisma.farmer.update({
+            where: { id },
+            data: { active: active }
+        });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// 5. Hard Delete (Only if no records exist)
+exports.deleteFarmer = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await prisma.farmer.delete({ where: { id } });
+        res.json({ message: "Farmer deleted successfully" });
+    } catch (error) {
+        // Prisma Error P2003 means Foreign Key constraint failed (Farmer has milk records)
+        if (error.code === 'P2003') {
+            return res.status(400).json({ error: "Cannot delete: This farmer has financial records. Deactivate them instead." });
+        }
         res.status(500).json({ error: error.message });
     }
 };
