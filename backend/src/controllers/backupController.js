@@ -5,9 +5,9 @@ const prisma = new PrismaClient();
 
 exports.downloadBackup = async (req, res) => {
     try {
-        const { type } = req.query; // 'json' or 'csv'
+        const { type } = req.query; // Check if frontend sent 'json' or 'csv'
 
-        // 1. Fetch ALL Data
+        // 1. Fetch Data
         const [farmers, collections, expenses, sales, products, advances, settings] = await Promise.all([
             prisma.farmer.findMany(),
             prisma.milkCollection.findMany({ include: { farmer: true } }),
@@ -20,7 +20,7 @@ exports.downloadBackup = async (req, res) => {
 
         const timestamp = new Date().toISOString().split('T')[0];
 
-        // --- OPTION A: JSON BACKUP (For Restore) ---
+        // 2. CHECK: IF JSON REQUESTED, RETURN JSON (OLD WAY)
         if (type === 'json') {
             const fullBackup = {
                 meta: { date: new Date(), version: "1.0", type: "Full System Backup" },
@@ -31,61 +31,59 @@ exports.downloadBackup = async (req, res) => {
             return res.send(JSON.stringify(fullBackup, null, 2));
         }
 
-        // --- OPTION B: CSV/EXCEL EXPORT (For Analysis) ---
+        // 3. IF CSV REQUESTED, GENERATE ZIP (NEW WAY)
         const zip = new AdmZip();
 
+        // Helper function
         const addToZip = (data, fileName, fields) => {
-            if (data.length > 0) {
+            if (data && data.length > 0) {
                 const json2csvParser = new Parser({ fields });
                 const csv = json2csvParser.parse(data);
                 zip.addFile(fileName, Buffer.from(csv, "utf8"));
             }
         };
 
-        // Flatten Data for Excel
+        // Flatten & Add Files
         const flatCollections = collections.map(c => ({
-            date: c.date.toISOString().split('T')[0],
+            date: c.date ? c.date.toISOString().split('T')[0] : '',
             shift: c.shift,
-            farmerCode: c.farmer?.farmerCode,
-            farmerName: c.farmer?.name,
+            farmerName: c.farmer?.name || "Unknown",
             quantity: c.quantity,
             fat: c.fat,
             snf: c.snf,
-            total: c.totalAmount
+            amount: c.totalAmount
         }));
+        addToZip(flatCollections, "Milk_Records.csv", ['date', 'shift', 'farmerName', 'quantity', 'fat', 'snf', 'amount']);
 
-        const flatAdvances = advances.map(a => ({
-            date: a.date.toISOString().split('T')[0],
-            farmerName: a.farmer?.name,
-            amount: a.amount,
-            description: a.description
-        }));
-
+        addToZip(farmers, "Farmers.csv", ['farmerCode', 'name', 'phone', 'address', 'milkType']);
+        
         const flatSales = sales.map(s => ({
-            date: s.date.toISOString().split('T')[0],
+            date: s.date ? s.date.toISOString().split('T')[0] : '',
             customer: s.customerName,
-            item: s.productId ? "Product" : "Milk",
             qty: s.quantity,
-            rate: s.rate,
-            revenue: s.totalAmount
+            amount: s.totalAmount
         }));
+        addToZip(flatSales, "Sales.csv", ['date', 'customer', 'qty', 'amount']);
 
-        // Add files to ZIP
-        addToZip(farmers, "Farmers_List.csv", ['farmerCode', 'name', 'phone', 'address', 'milkType']);
-        addToZip(flatCollections, "Milk_Records.csv", ['date', 'shift', 'farmerName', 'quantity', 'fat', 'snf', 'total']);
-        addToZip(flatAdvances, "Advances.csv", ['date', 'farmerName', 'amount', 'description']);
-        addToZip(expenses, "Expenses.csv", ['date', 'category', 'amount', 'description']);
-        addToZip(flatSales, "Sales_Revenue.csv", ['date', 'customer', 'item', 'qty', 'rate', 'revenue']);
-        addToZip(products, "Inventory_Stock.csv", ['name', 'unit', 'stock']);
+        const flatExpenses = expenses.map(e => ({
+            date: e.date ? e.date.toISOString().split('T')[0] : '',
+            category: e.category,
+            amount: e.amount,
+            description: e.description
+        }));
+        addToZip(flatExpenses, "Expenses.csv", ['date', 'category', 'amount', 'description']);
 
+        // Finalize Zip
+        const downloadName = `Dairy_Excel_Reports_${timestamp}.zip`;
         const zipBuffer = zip.toBuffer();
+
         res.set('Content-Type', 'application/zip');
-        res.set('Content-Disposition', `attachment; filename=Dairy_Excel_Reports_${timestamp}.zip`);
+        res.set('Content-Disposition', `attachment; filename=${downloadName}`);
         res.set('Content-Length', zipBuffer.length);
         res.send(zipBuffer);
 
     } catch (error) {
-        console.error("Export Error:", error);
-        res.status(500).json({ error: "Failed to generate files" });
+        console.error("Backup Error:", error);
+        res.status(500).json({ error: "Failed to generate files. Check server logs." });
     }
 };
