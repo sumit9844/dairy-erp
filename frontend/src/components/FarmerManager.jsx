@@ -1,60 +1,97 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-  UserPlus, Users, Phone, Beaker, 
-  LayoutDashboard, ClipboardList, TrendingUp, Settings,
-  MapPin, CheckCircle2, Search, Info
+  UserPlus, Users, Phone, Beaker, MapPin, 
+  CheckCircle2, Search, Info
 } from 'lucide-react';
+
+// API BASE URL - Change this if testing locally
+const API_BASE_URL = 'https://dairy-erp-backend.onrender.com';
 
 const FarmerManager = () => {
   const [farmers, setFarmers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Available Locations
+  const locations = ["Barahathawa", "Hajariya", "Rajghat"];
+
   const [formData, setFormData] = useState({
-    farmerCode: '', name: '', phone: '', address: '',
-    milkType: 'COW', rateType: 'FAT_SNF',
-    fatRate: '', snfRate: '', fixedRate: ''
+    farmerCode: '', 
+    name: '', 
+    phone: '', 
+    address: 'Barahathawa', // Default
+    milkType: 'COW', 
+    rateType: 'FAT_SNF',
+    fatRate: '', 
+    snfRate: '', 
+    fixedRate: ''
   });
+
+  // Helper to generate a unique code based on location
+  const generateCode = (location) => {
+    const prefix = location.substring(0, 3).toUpperCase();
+    const randomNum = Math.floor(1000 + Math.random() * 9000); // e.g. 4821
+    return `${prefix}-${randomNum}`; // Result: BAR-4821
+  };
+
+  // Initialize code on load
+  useEffect(() => {
+    setFormData(prev => ({
+        ...prev,
+        farmerCode: generateCode(prev.address)
+    }));
+    fetchFarmers();
+  }, []);
 
   const fetchFarmers = async () => {
     try {
-      const res = await axios.get('https://dairy-erp-backend.onrender.com/api/farmers');
+      const res = await axios.get(`${API_BASE_URL}/api/farmers`);
       setFarmers(res.data);
     } catch (err) {
       console.error("Connection Error:", err);
     }
   };
 
-  useEffect(() => { fetchFarmers(); }, []);
+  const handleLocationChange = (e) => {
+    const newLocation = e.target.value;
+    setFormData({
+        ...formData,
+        address: newLocation,
+        farmerCode: generateCode(newLocation) // Regenerate code when location changes
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('https://dairy-erp-backend.onrender.com/api/farmers', formData);
+      await axios.post(`${API_BASE_URL}/api/farmers`, formData);
       alert("Farmer Registered Successfully!");
-      // Reset Form
+      
+      // Reset Form with new code
+      const defaultLoc = 'Barahathawa';
       setFormData({ 
-        farmerCode: '', name: '', phone: '', address: '', 
+        farmerCode: generateCode(defaultLoc), 
+        name: '', phone: '', 
+        address: defaultLoc, 
         milkType: 'COW', rateType: 'FAT_SNF', 
         fatRate: '', snfRate: '', fixedRate: '' 
       });
       fetchFarmers();
     } catch (err) { 
-      alert("Error: Check if Farmer Code is unique or if Backend is running."); 
+      console.error(err);
+      alert("Error: Backend connection failed or Duplicate ID."); 
     }
   };
 
   const filteredFarmers = farmers.filter(f => 
     f.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    f.farmerCode.includes(searchTerm)
+    f.address?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="flex min-h-screen bg-[#f8fafc] text-slate-900 font-sans">
-      
-      
-
-        {/* DASHBOARD CONTENT */}
-        <div className="p-8 overflow-y-auto">
+        
+        <div className="p-8 overflow-y-auto w-full">
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
             
             {/* REGISTRATION FORM (LEFT) */}
@@ -67,25 +104,46 @@ const FarmerManager = () => {
                 </div>
                 
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                  {/* CODE & NAME */}
+                  
+                  {/* LOCATION SELECTOR & AUTO CODE */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Farmer Code</label>
-                      <input 
-                        name="farmerCode" onChange={(e) => setFormData({...formData, farmerCode: e.target.value})} value={formData.farmerCode}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all outline-none text-slate-900 font-semibold" placeholder="F-101" required 
-                      />
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Select Location</label>
+                      <div className="relative">
+                        <MapPin size={16} className="absolute left-3 top-3.5 text-blue-500" />
+                        <select 
+                            name="address" 
+                            value={formData.address} 
+                            onChange={handleLocationChange}
+                            className="w-full pl-9 p-3 bg-blue-50/50 border border-blue-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 font-bold appearance-none cursor-pointer"
+                        >
+                            {locations.map(loc => (
+                                <option key={loc} value={loc}>{loc}</option>
+                            ))}
+                        </select>
+                      </div>
                     </div>
+                    
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Full Name</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Auto ID (System)</label>
                       <input 
-                        name="name" onChange={(e) => setFormData({...formData, name: e.target.value})} value={formData.name}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all outline-none text-slate-900 font-semibold" placeholder="John Doe" required 
+                        readOnly
+                        value={formData.farmerCode}
+                        className="w-full p-3 bg-slate-100 border-none rounded-xl text-slate-500 font-mono text-sm tracking-wider select-none" 
                       />
                     </div>
                   </div>
 
-                  {/* MILK TYPE SELECTION (NEW BUTTONS) */}
+                  {/* NAME */}
+                  <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Full Name</label>
+                      <input 
+                        name="name" onChange={(e) => setFormData({...formData, name: e.target.value})} value={formData.name}
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all outline-none text-slate-900 font-semibold" placeholder="Enter farmer name..." required 
+                      />
+                  </div>
+
+                  {/* MILK TYPE SELECTION */}
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Primary Milk Type</label>
                     <div className="flex gap-3">
@@ -179,13 +237,27 @@ const FarmerManager = () => {
                   </div>
                 </div>
 
+                {/* SEARCH BAR */}
+                <div className="p-4 border-b border-slate-50 bg-slate-50/30">
+                     <div className="relative">
+                        <Search className="absolute left-3 top-3 text-slate-400" size={18} />
+                        <input 
+                            type="text" 
+                            placeholder="Search by Name or Location..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 p-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-300"
+                        />
+                     </div>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-slate-50/50 text-[10px] uppercase tracking-widest text-slate-400 border-b border-slate-100">
-                        <th className="px-6 py-4">Farmer Details</th>
+                        <th className="px-6 py-4">Location / ID</th>
+                        <th className="px-6 py-4">Farmer Name</th>
                         <th className="px-6 py-4 text-center">Milk Type</th>
-                        <th className="px-6 py-4">Billing Logic</th>
                         <th className="px-6 py-4 text-right">Unit Rates</th>
                       </tr>
                     </thead>
@@ -193,24 +265,23 @@ const FarmerManager = () => {
                       {filteredFarmers.map(f => (
                         <tr key={f.id} className="hover:bg-blue-50/30 transition-colors group">
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-slate-500 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                                {f.farmerCode}
-                              </div>
-                              <div>
+                             <div className="flex flex-col">
+                                <span className="text-xs font-black text-blue-600 uppercase flex items-center gap-1">
+                                    <MapPin size={10} /> {f.address || 'N/A'}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400 tracking-wider">
+                                    ID: {f.farmerCode}
+                                </span>
+                             </div>
+                          </td>
+                          <td className="px-6 py-4">
                                 <div className="font-bold text-slate-800">{f.name}</div>
                                 <div className="text-[10px] text-slate-400 flex items-center gap-1 font-medium"><Phone size={10}/> {f.phone || 'NO CONTACT'}</div>
-                              </div>
-                            </div>
                           </td>
                           <td className="px-6 py-4 text-center">
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${f.milkType === 'COW' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-100 text-indigo-700'}`}>
                               {f.milkType}
                             </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-xs font-bold text-slate-600">{f.rateType.replace('_', ' ')}</div>
-                            <div className="text-[9px] text-slate-400 font-bold uppercase">Settlement: Weekly</div>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="inline-flex flex-col items-end">
@@ -242,21 +313,8 @@ const FarmerManager = () => {
 
           </div>
         </div>
-    
     </div>
   );
 };
-
-// Sub-component for Sidebar Items
-const NavItem = ({ icon, label, active = false }) => (
-  <div className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${
-    active 
-    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 translate-x-1' 
-    : 'text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1'
-  }`}>
-    {icon}
-    <span className="font-semibold text-sm">{label}</span>
-  </div>
-);
 
 export default FarmerManager;
