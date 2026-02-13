@@ -34,6 +34,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/sales', saleRoutes);
 app.use('/api/production', productionRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/backup', require('./routes/backupRoutes'));
 
 app.get('/', (req, res) => {
   res.json({ message: "Dairy ERP API is running..." });

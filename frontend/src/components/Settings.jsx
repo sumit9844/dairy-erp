@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Settings as SettingsIcon, Save, Building, Phone, MapPin, Notebook } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Building, Phone, MapPin, Notebook, Download } from 'lucide-react';
 
 const Settings = () => {
   const [formData, setFormData] = useState({
@@ -25,10 +25,17 @@ const Settings = () => {
     }
   };
 
+  const handleDownloadBackup = () => {
+    // Points to the live backend backup route
+    window.open('https://dairy-erp-backend.onrender.com/api/backup', '_blank');
+  };
+
   if (loading) return <div className="p-10 font-bold text-slate-400">Loading Configuration...</div>;
 
   return (
-    <div className="w-full animate-in fade-in duration-500">
+    <div className="w-full animate-in fade-in duration-500 pb-20">
+      
+      {/* HEADER */}
       <div className="flex items-center gap-3 mb-8">
         <div className="bg-slate-800 p-2.5 rounded-xl shadow-lg">
           <SettingsIcon className="text-white w-6 h-6"/>
@@ -100,8 +107,22 @@ const Settings = () => {
                 </p>
             </div>
         </div>
-
       </div>
+
+      {/* DATA SAFETY CARD */}
+      <div className="mt-10 bg-slate-900 p-8 rounded-[2.5rem] shadow-xl text-white flex flex-col md:flex-row justify-between items-center gap-6">
+        <div>
+            <h3 className="text-lg font-black uppercase tracking-widest text-emerald-400">Data Safety</h3>
+            <p className="text-sm text-slate-400 mt-1">Download a complete copy of your database to save on a Pen Drive.</p>
+        </div>
+        <button 
+            onClick={handleDownloadBackup}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg flex items-center gap-3 transition-all active:scale-95"
+        >
+            <Download size={20} /> DOWNLOAD BACKUP
+        </button>
+      </div>
+      
     </div>
   );
 };

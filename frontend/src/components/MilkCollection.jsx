@@ -206,22 +206,22 @@ const MilkCollection = () => {
                         </>
                     )}
                 </div>
-                // UPDATE THE SAVE BUTTON IN THE FORM:
-  <button 
-      type="submit" 
-      disabled={isSubmitting} // Disable if submitting
-      className={`w-full py-6 rounded-3xl font-black shadow-xl flex items-center justify-center gap-4 transition-all text-lg ${isSubmitting ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white'}`}
-  >
-      {isSubmitting ? (
-          <>
-            <Loader2 className="animate-spin" size={24} /> SAVING...
-          </>
-      ) : (
-          <>
-            <Save size={24}/> SAVE ENTRY
-          </>
-      )}
-  </button>
+                
+                  <button 
+                      type="submit" 
+                      disabled={isSubmitting} // Disable if submitting
+                      className={`w-full py-6 rounded-3xl font-black shadow-xl flex items-center justify-center gap-4 transition-all text-lg ${isSubmitting ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white'}`}
+                  >
+                      {isSubmitting ? (
+                          <>
+                            <Loader2 className="animate-spin" size={24} /> SAVING...
+                          </>
+                      ) : (
+                          <>
+                            <Save size={24}/> SAVE ENTRY
+                          </>
+                      )}
+                  </button>
               </form>
             ) : (
               <div className="py-20 text-center bg-slate-50 rounded-[2.5rem] border-4 border-dashed border-slate-100">
