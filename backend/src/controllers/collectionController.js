@@ -74,3 +74,26 @@ exports.getCollectionsByDate = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// ... existing imports
+
+// NEW: Delete multiple records at once
+exports.deleteBulkCollections = async (req, res) => {
+    try {
+        const { ids } = req.body; // Expects an array like ["id1", "id2"]
+        
+        if (!ids || ids.length === 0) {
+            return res.status(400).json({ error: "No items selected" });
+        }
+
+        const result = await prisma.milkCollection.deleteMany({
+            where: {
+                id: { in: ids }
+            }
+        });
+
+        res.json({ message: `${result.count} records deleted successfully` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};

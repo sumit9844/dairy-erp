@@ -5,12 +5,15 @@ import {
   ClipboardList, Search, Save, History, 
   User, CheckCircle, Edit3, Check, X, Calendar, ChevronLeft, ChevronRight 
 } from 'lucide-react';
+import { Loader2 } from 'lucide-react'; // Import Loader icon
 
 const MilkCollection = () => {
   const [farmers, setFarmers] = useState([]);
   const [entries, setEntries] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false); // <--- NEW STATE
+
   
   // Pagination State for Logs
   const [currentPage, setCurrentPage] = useState(1);
@@ -51,7 +54,10 @@ const MilkCollection = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedFarmer) return alert("Select a farmer first!");
-    
+    if (isSubmitting) return; // Stop if already clicking
+
+    setIsSubmitting(true); // DISABLE BUTTON
+
     try {
       await axios.post('https://dairy-erp-backend.onrender.com/api/collections', {
         farmerId: selectedFarmer.id,
@@ -63,15 +69,16 @@ const MilkCollection = () => {
       });
       
       setFormData({ quantity: '', fat: '', snf: '', shift: formData.shift });
-      setSelectedFarmer(null);
+      //setSelectedFarmer(null);
       
       // --- THE FIX: RELOAD AND JUMP TO PAGE 1 ---
-      await fetchLogs(); 
-      setCurrentPage(1); 
-      // ------------------------------------------
-
-      alert("Milk Entry Saved!");
-    } catch (err) { alert("Error saving transaction."); }
+    await fetchLogs();
+      // alert("Saved!"); // Optional: Remove alert to make it faster
+    } catch (err) { 
+      alert("Error saving transaction."); 
+    } finally {
+      setIsSubmitting(false); // RE-ENABLE BUTTON
+    }
   };
 
   // 3. Handle Admin Edit
@@ -199,9 +206,22 @@ const MilkCollection = () => {
                         </>
                     )}
                 </div>
-                <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-6 rounded-3xl font-black shadow-xl flex items-center justify-center gap-4 transition-all active:scale-95 text-lg">
-                    <Save size={24}/> SAVE ENTRY FOR {selectedFarmer.name.toUpperCase()}
-                </button>
+                // UPDATE THE SAVE BUTTON IN THE FORM:
+  <button 
+      type="submit" 
+      disabled={isSubmitting} // Disable if submitting
+      className={`w-full py-6 rounded-3xl font-black shadow-xl flex items-center justify-center gap-4 transition-all text-lg ${isSubmitting ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white'}`}
+  >
+      {isSubmitting ? (
+          <>
+            <Loader2 className="animate-spin" size={24} /> SAVING...
+          </>
+      ) : (
+          <>
+            <Save size={24}/> SAVE ENTRY
+          </>
+      )}
+  </button>
               </form>
             ) : (
               <div className="py-20 text-center bg-slate-50 rounded-[2.5rem] border-4 border-dashed border-slate-100">

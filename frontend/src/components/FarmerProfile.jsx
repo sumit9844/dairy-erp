@@ -4,7 +4,8 @@ import { formatBS } from '../utils/dateHelper';
 import { 
   ArrowLeft, Droplets, Landmark, History, 
   Settings, Save, Phone, MapPin, CheckCircle2, 
-  Edit3, Check, X, User, AlertTriangle, Trash2, Power
+  Edit3, Check, X, User, AlertTriangle, Trash2, Power, 
+  Square, CheckSquare 
 } from 'lucide-react';
 
 const FarmerProfile = ({ farmer, onBack }) => {
@@ -13,7 +14,10 @@ const FarmerProfile = ({ farmer, onBack }) => {
   const [activeTab, setActiveTab] = useState('milk');
   const [loading, setLoading] = useState(true);
   
-  // Local state to track active status immediately without reload
+  // Bulk Selection State
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  // Local state to track active status
   const [isActive, setIsActive] = useState(farmer.active);
 
   // States for Editing Milk Records
@@ -42,6 +46,11 @@ const FarmerProfile = ({ farmer, onBack }) => {
     }
   }, [farmer]);
 
+  // Reset selection when tab changes
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [activeTab]);
+
   const fetchFarmerData = async () => {
     setLoading(true);
     try {
@@ -55,43 +64,37 @@ const FarmerProfile = ({ farmer, onBack }) => {
     setLoading(false);
   };
 
-  // --- ACTIONS ---
-
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.put(`https://dairy-erp-backend.onrender.com/api/farmers/${farmer.id}`, editForm);
-      alert("Farmer Profile & Rates Updated Successfully!");
-    } catch (err) {
-      alert("Failed to update profile.");
+  // --- BULK DELETE HANDLERS ---
+  const toggleSelect = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(itemId => itemId !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
     }
   };
 
-  const toggleStatus = async () => {
-    const action = isActive ? "DEACTIVATE" : "ACTIVATE";
-    if(!window.confirm(`Are you sure you want to ${action} this farmer?`)) return;
-
-    try {
-        await axios.patch(`https://dairy-erp-backend.onrender.com/api/farmers/${farmer.id}/status`, { active: !isActive });
-        setIsActive(!isActive);
-        alert(`Farmer ${action}D successfully!`);
-    } catch (err) { alert("Error changing status"); }
-  };
-
-  const handleDelete = async () => {
-    const confirmMsg = "WARNING: This will permanently delete the farmer.\n\nIf they have milk records, the system will block this action to preserve financial history.\n\nAre you sure?";
-    if(!window.confirm(confirmMsg)) return;
-
-    try {
-        await axios.delete(`https://dairy-erp-backend.onrender.com/api/farmers/${farmer.id}`);
-        alert("Farmer Deleted Permanently.");
-        onBack(); // Go back to list
-    } catch (err) {
-        alert(err.response?.data?.error || "Cannot delete farmer with existing records. Please Deactivate instead.");
+  const toggleSelectAll = () => {
+    if (selectedIds.length === milkData.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(milkData.map(m => m.id));
     }
   };
 
-  // --- DYNAMIC CALCULATION ENGINE (Same as before) ---
+  const handleBulkDelete = async () => {
+    if(!window.confirm(`Are you sure you want to delete ${selectedIds.length} records? This cannot be undone.`)) return;
+
+    try {
+        await axios.post('https://dairy-erp-backend.onrender.com/api/collections/bulk-delete', { ids: selectedIds });
+        alert("Records Deleted Successfully");
+        setSelectedIds([]);
+        fetchFarmerData();
+    } catch (err) {
+        alert("Delete failed");
+    }
+  };
+
+  // --- DYNAMIC CALCULATION ENGINE ---
   const calculateItemTotal = (record) => {
     const isEditing = editingMilkId === record.id;
     const qty = parseFloat(isEditing ? milkEditData.quantity : record.quantity) || 0;
@@ -103,23 +106,14 @@ const FarmerProfile = ({ farmer, onBack }) => {
     const fixRate = parseFloat(farmer.fixedRate) || 0;
 
     let total = 0;
-    if (farmer.rateType === 'FIXED') {
-        // Simple: Liters * Fixed Price
-        total = qty * fixRate;
-    } else if (farmer.rateType === 'FAT_ONLY') {
-        // Fat Based: Liters * (Fat * PricePerFat)
-        // Example: 5L * (4.0 fat * 10rs) = 200
-        const ratePerLiter = fat * fRate;
-        total = qty * ratePerLiter;
-    } else if (farmer.rateType === 'FAT_SNF') {
-        // Combined: Liters * ((Fat * Price) + (SNF * Price))
-        const ratePerLiter = (fat * fRate) + (snf * sRate);
-        total = qty * ratePerLiter;
-    }
+    if (farmer.rateType === 'FIXED') total = qty * fixRate;
+    else if (farmer.rateType === 'FAT_ONLY') total = qty * (fat * fRate);
+    else if (farmer.rateType === 'FAT_SNF') total = qty * ((fat * fRate) + (snf * sRate));
 
     return Math.round(total);
   };
 
+  // --- EDIT HANDLERS ---
   const startMilkEdit = (record) => {
     setEditingMilkId(record.id);
     setMilkEditData({ quantity: record.quantity, fat: record.fat, snf: record.snf });
@@ -132,6 +126,33 @@ const FarmerProfile = ({ farmer, onBack }) => {
       fetchFarmerData(); 
       alert("Milk record updated!");
     } catch (err) { alert("Update failed"); }
+  };
+
+  // --- PROFILE UPDATE HANDLERS ---
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(`https://dairy-erp-backend.onrender.com/api/farmers/${farmer.id}`, editForm);
+      alert("Farmer Profile Updated!");
+      window.location.reload(); // Reload to reflect changes
+    } catch (err) { alert("Failed to update profile."); }
+  };
+
+  const toggleStatus = async () => {
+    try {
+        await axios.patch(`https://dairy-erp-backend.onrender.com/api/farmers/${farmer.id}/status`, { active: !isActive });
+        setIsActive(!isActive);
+        alert(`Status changed!`);
+    } catch (err) { alert("Error changing status"); }
+  };
+
+  const handleDelete = async () => {
+    if(!window.confirm("WARNING: Permanent Delete. Are you sure?")) return;
+    try {
+        await axios.delete(`https://dairy-erp-backend.onrender.com/api/farmers/${farmer.id}`);
+        alert("Farmer Deleted.");
+        onBack();
+    } catch (err) { alert("Cannot delete farmer with existing records."); }
   };
 
   const totalVolume = milkData.reduce((acc, curr) => acc + curr.quantity, 0);
@@ -190,12 +211,29 @@ const FarmerProfile = ({ farmer, onBack }) => {
             </div>
 
             <div className="p-10 flex-1 min-h-[500px]">
-                {/* MILK TAB */}
+                
+                {/* MILK TAB WITH BULK DELETE */}
                 {activeTab === 'milk' && (
-                    <div className="animate-in fade-in duration-300">
+                    <div className="animate-in fade-in duration-300 relative">
+                        
+                        {/* BULK ACTION HEADER (Floating) */}
+                        {selectedIds.length > 0 && (
+                            <div className="absolute -top-6 right-0 bg-red-50 border border-red-100 p-2 rounded-xl flex items-center gap-4 animate-in slide-in-from-top-2 shadow-lg z-10">
+                                <span className="text-xs font-bold text-red-600 pl-2">{selectedIds.length} Selected</span>
+                                <button onClick={handleBulkDelete} className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 hover:bg-red-700 transition-all">
+                                    <Trash2 size={14} /> DELETE SELECTED
+                                </button>
+                            </div>
+                        )}
+
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-4">
+                                    <th className="py-4 w-10">
+                                        <button onClick={toggleSelectAll} className="text-slate-400 hover:text-blue-600">
+                                            {milkData.length > 0 && selectedIds.length === milkData.length ? <CheckSquare size={18}/> : <Square size={18}/>}
+                                        </button>
+                                    </th>
                                     <th className="py-4">Date / Shift</th>
                                     <th className="py-4 text-center">Volume (L)</th>
                                     <th className="py-4 text-center">Fat/SNF</th>
@@ -205,7 +243,13 @@ const FarmerProfile = ({ farmer, onBack }) => {
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {milkData.map(m => (
-                                    <tr key={m.id} className="text-sm font-bold text-slate-700 hover:bg-slate-50/50 transition-colors group">
+                                    <tr key={m.id} className={`text-sm font-bold transition-colors group ${selectedIds.includes(m.id) ? 'bg-blue-50/50' : 'hover:bg-slate-50/50'}`}>
+                                        <td className="py-5">
+                                            <button onClick={() => toggleSelect(m.id)} className={`${selectedIds.includes(m.id) ? 'text-blue-600' : 'text-slate-300 hover:text-slate-500'}`}>
+                                                {selectedIds.includes(m.id) ? <CheckSquare size={18}/> : <Square size={18}/>}
+                                            </button>
+                                        </td>
+                                        
                                         <td className="py-5">
                                             <div className="flex flex-col">
                                                 <span className="text-blue-700 font-black">{formatBS(m.date)} (BS)</span>
@@ -214,6 +258,7 @@ const FarmerProfile = ({ farmer, onBack }) => {
                                                 </span>
                                             </div>
                                         </td>
+                                        
                                         <td className="py-5 text-center">
                                             {editingMilkId === m.id ? (
                                                 <input type="number" className="w-20 p-2 border rounded-xl text-center bg-blue-50 border-blue-200" 
@@ -222,6 +267,7 @@ const FarmerProfile = ({ farmer, onBack }) => {
                                                 <span className="text-blue-600 font-black">{m.quantity.toFixed(2)} L</span>
                                             )}
                                         </td>
+
                                         <td className="py-5 text-center">
                                             {editingMilkId === m.id ? (
                                                 <div className="flex gap-2 justify-center">
@@ -236,9 +282,12 @@ const FarmerProfile = ({ farmer, onBack }) => {
                                                 </span>
                                             )}
                                         </td>
+
+                                        {/* DYNAMIC TOTAL */}
                                         <td className="py-5 text-right font-black text-lg">
                                             ₹{calculateItemTotal(m).toLocaleString()}
                                         </td>
+
                                         <td className="py-5 text-right">
                                             {editingMilkId === m.id ? (
                                                 <div className="flex justify-end gap-2">
@@ -246,18 +295,22 @@ const FarmerProfile = ({ farmer, onBack }) => {
                                                     <button onClick={() => setEditingMilkId(null)} className="p-2 bg-slate-100 text-slate-400 rounded-lg hover:bg-slate-200"><X size={16}/></button>
                                                 </div>
                                             ) : (
-                                                <button onClick={() => startMilkEdit(m)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit3 size={16}/></button>
+                                                !selectedIds.includes(m.id) && (
+                                                    <button onClick={() => startMilkEdit(m)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
+                                                        <Edit3 size={16}/>
+                                                    </button>
+                                                )
                                             )}
                                         </td>
                                     </tr>
                                 ))}
-                                {milkData.length === 0 && <tr><td colSpan="5" className="py-20 text-center text-slate-300 italic">No milk history found</td></tr>}
+                                {milkData.length === 0 && <tr><td colSpan="6" className="py-20 text-center text-slate-300 italic">No milk history found</td></tr>}
                             </tbody>
                         </table>
                     </div>
                 )}
 
-                {/* ADVANCES TAB */}
+                {/* ADVANCES TAB (No Change) */}
                 {activeTab === 'advances' && (
                     <div className="animate-in fade-in duration-300">
                         <table className="w-full text-left">
@@ -277,7 +330,7 @@ const FarmerProfile = ({ farmer, onBack }) => {
                     </div>
                 )}
 
-                {/* SETTINGS & DANGER ZONE TAB */}
+                {/* SETTINGS TAB */}
                 {activeTab === 'settings' && (
                     <div className="animate-in fade-in zoom-in-95 duration-300 max-w-2xl">
                         <form onSubmit={handleUpdateProfile} className="space-y-8">
@@ -303,28 +356,16 @@ const FarmerProfile = ({ farmer, onBack }) => {
                             </button>
                         </form>
 
-                        {/* DANGER ZONE */}
                         <div className="mt-12 pt-8 border-t-2 border-slate-100">
                             <h4 className="text-xs font-black text-red-600 uppercase tracking-widest flex items-center gap-2 mb-6"><AlertTriangle size={16}/> Danger Zone</h4>
-                            
                             <div className="flex gap-4">
                                 <button onClick={toggleStatus} className={`flex-1 py-4 rounded-2xl font-black border-2 transition-all ${isActive ? 'border-orange-200 text-orange-600 hover:bg-orange-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}>
-                                    <div className="flex flex-col items-center gap-1">
-                                        <Power size={20} />
-                                        <span>{isActive ? 'DEACTIVATE ACCOUNT' : 'ACTIVATE ACCOUNT'}</span>
-                                    </div>
+                                    <div className="flex flex-col items-center gap-1"><Power size={20} /><span>{isActive ? 'DEACTIVATE ACCOUNT' : 'ACTIVATE ACCOUNT'}</span></div>
                                 </button>
-
                                 <button onClick={handleDelete} className="flex-1 py-4 rounded-2xl font-black border-2 border-red-100 text-red-600 hover:bg-red-50 transition-all">
-                                    <div className="flex flex-col items-center gap-1">
-                                        <Trash2 size={20} />
-                                        <span>PERMANENT DELETE</span>
-                                    </div>
+                                    <div className="flex flex-col items-center gap-1"><Trash2 size={20} /><span>PERMANENT DELETE</span></div>
                                 </button>
                             </div>
-                            <p className="text-[10px] text-slate-400 font-bold text-center mt-4 uppercase">
-                                * Deactivating hides the farmer from daily collection lists but keeps history. Deleting removes everything.
-                            </p>
                         </div>
                     </div>
                 )}
