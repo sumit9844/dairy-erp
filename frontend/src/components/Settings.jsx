@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Settings as SettingsIcon, Save, Building, Phone, MapPin, Notebook, Download } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Building, Phone, MapPin, Notebook, Download, FileSpreadsheet, Database } from 'lucide-react';
 
 const Settings = () => {
   const [formData, setFormData] = useState({
@@ -25,9 +25,14 @@ const Settings = () => {
     }
   };
 
-  const handleDownloadBackup = () => {
-    // Points to the live backend backup route
-    window.open('https://dairy-erp-backend.onrender.com/api/backup', '_blank');
+  // Function 1: JSON (System Restore)
+  const downloadJSON = () => {
+    window.open('https://dairy-erp-backend.onrender.com/api/backup?type=json', '_blank');
+  };
+
+  // Function 2: CSV (Excel Reports)
+  const downloadCSV = () => {
+    window.open('https://dairy-erp-backend.onrender.com/api/backup?type=csv', '_blank');
   };
 
   if (loading) return <div className="p-10 font-bold text-slate-400">Loading Configuration...</div>;
@@ -101,28 +106,51 @@ const Settings = () => {
                     <p className="text-xs font-bold text-slate-400 italic">{formData.billNote}</p>
                 </div>
             </div>
-            <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100">
-                <p className="text-xs font-bold text-blue-700 leading-relaxed">
-                    <strong>Note:</strong> These details will appear on all printed settlement bills and reports. Make sure the address and contact number are accurate for legal purposes.
-                </p>
-            </div>
-        </div>
-      </div>
+            
+            {/* --- EXPORT BUTTONS --- */}
+            <div className="mt-8">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Data Export & Backup</h3>
+                <div className="flex flex-col gap-4">
+                    
+                    {/* Button 1: CSV / Excel */}
+                    <button 
+                        onClick={downloadCSV}
+                        className="w-full bg-emerald-50 border border-emerald-100 p-6 rounded-[2rem] flex items-center justify-between group hover:shadow-lg transition-all"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="bg-emerald-500 text-white p-3 rounded-xl shadow-lg shadow-emerald-200">
+                                <FileSpreadsheet size={24} />
+                            </div>
+                            <div className="text-left">
+                                <h4 className="font-black text-emerald-900 uppercase text-sm">Download Excel Reports</h4>
+                                <p className="text-xs font-bold text-emerald-600">Get CSVs for Farmers, Milk, Sales & Expenses</p>
+                            </div>
+                        </div>
+                        <Download className="text-emerald-300 group-hover:text-emerald-600 transition-colors" />
+                    </button>
 
-      {/* DATA SAFETY CARD */}
-      <div className="mt-10 bg-slate-900 p-8 rounded-[2.5rem] shadow-xl text-white flex flex-col md:flex-row justify-between items-center gap-6">
-        <div>
-            <h3 className="text-lg font-black uppercase tracking-widest text-emerald-400">Data Safety</h3>
-            <p className="text-sm text-slate-400 mt-1">Download a complete copy of your database to save on a Pen Drive.</p>
+                    {/* Button 2: JSON Backup */}
+                    <button 
+                        onClick={downloadJSON}
+                        className="w-full bg-blue-50 border border-blue-100 p-6 rounded-[2rem] flex items-center justify-between group hover:shadow-lg transition-all"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-200">
+                                <Database size={24} />
+                            </div>
+                            <div className="text-left">
+                                <h4 className="font-black text-blue-900 uppercase text-sm">Full System Backup</h4>
+                                <p className="text-xs font-bold text-blue-600">Save raw database file (JSON) for restoration</p>
+                            </div>
+                        </div>
+                        <Download className="text-blue-300 group-hover:text-blue-600 transition-colors" />
+                    </button>
+
+                </div>
+            </div>
+
         </div>
-        <button 
-            onClick={handleDownloadBackup}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg flex items-center gap-3 transition-all active:scale-95"
-        >
-            <Download size={20} /> DOWNLOAD BACKUP
-        </button>
-      </div>
-      
+      </div>      
     </div>
   );
 };
