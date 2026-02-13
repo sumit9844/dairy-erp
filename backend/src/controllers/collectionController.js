@@ -4,43 +4,61 @@ const prisma = new PrismaClient();
 exports.addCollection = async (req, res) => {
     try {
         const { farmerId, quantity, fat, snf, shift, date } = req.body;
+        
+        // LOGIC: Use selected date but add CURRENT TIME to ensure LIFO sorting
+        let entryDate = new Date();
+        if (date) {
+            entryDate = new Date(date); // Sets to 00:00:00
+            const now = new Date();
+            // Add current hours/mins/secs to the selected date
+            entryDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+        }
+
         const collection = await prisma.milkCollection.create({
             data: {
                 farmerId,
                 quantity: parseFloat(quantity),
-                fat: parseFloat(fat) || 0, // Now optional
-                snf: parseFloat(snf) || 0, // Now optional
+                fat: parseFloat(fat) || 0,
+                snf: parseFloat(snf) || 0,
                 shift,
-                date: date ? new Date(date) : new Date(),
-                rate: 0, // Placeholders: math happens during settlement
+                date: entryDate, // Saves with time component
+                rate: 0, 
                 totalAmount: 0 
             }
         });
         res.status(201).json(collection);
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
 exports.updateCollection = async (req, res) => {
     try {
         const { id } = req.params;
         const { quantity, fat, snf, shift, date } = req.body;
+        
+        // Preserve time if date is updated, or keep old time?
+        // Simple update:
         const updated = await prisma.milkCollection.update({
             where: { id },
             data: {
                 quantity: parseFloat(quantity),
-                fat: parseFloat(fat) || 0,
-                snf: parseFloat(snf) || 0,
+                fat: parseFloat(fat),
+                snf: parseFloat(snf),
                 shift,
-                date: new Date(date)
+                // If date is passed, we usually keep it simple for edits
+                ...(date && { date: new Date(date) }) 
             }
         });
         res.json(updated);
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
 exports.getCollectionsByDate = async (req, res) => {
     try {
-        const { date } = req.query; // Expects YYYY-MM-DD
+        const { date } = req.query; 
         const start = new Date(date);
         start.setHours(0,0,0,0);
         const end = new Date(date);
@@ -49,8 +67,10 @@ exports.getCollectionsByDate = async (req, res) => {
         const logs = await prisma.milkCollection.findMany({
             where: { date: { gte: start, lte: end } },
             include: { farmer: true },
-            orderBy: { date: 'desc' }
+            orderBy: { date: 'desc' } // <--- THIS ENSURES LAST IN FIRST OUT
         });
         res.json(logs);
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };

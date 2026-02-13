@@ -103,9 +103,19 @@ const FarmerProfile = ({ farmer, onBack }) => {
     const fixRate = parseFloat(farmer.fixedRate) || 0;
 
     let total = 0;
-    if (farmer.rateType === 'FIXED') total = qty * fixRate;
-    else if (farmer.rateType === 'FAT_ONLY') total = qty * (fat * fRate);
-    else if (farmer.rateType === 'FAT_SNF') total = qty * ((fat * fRate) + (snf * sRate));
+    if (farmer.rateType === 'FIXED') {
+        // Simple: Liters * Fixed Price
+        total = qty * fixRate;
+    } else if (farmer.rateType === 'FAT_ONLY') {
+        // Fat Based: Liters * (Fat * PricePerFat)
+        // Example: 5L * (4.0 fat * 10rs) = 200
+        const ratePerLiter = fat * fRate;
+        total = qty * ratePerLiter;
+    } else if (farmer.rateType === 'FAT_SNF') {
+        // Combined: Liters * ((Fat * Price) + (SNF * Price))
+        const ratePerLiter = (fat * fRate) + (snf * sRate);
+        total = qty * ratePerLiter;
+    }
 
     return Math.round(total);
   };

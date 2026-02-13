@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { formatBS } from '../utils/dateHelper'; // <--- IMPORTED BS HELPER
+import { formatBS } from '../utils/dateHelper';
 import { 
   ClipboardList, Search, Save, History, 
-  User, CheckCircle, Info, Edit3, Check, X, Calendar 
+  User, CheckCircle, Edit3, Check, X, Calendar, ChevronLeft, ChevronRight 
 } from 'lucide-react';
 
 const MilkCollection = () => {
@@ -12,6 +12,10 @@ const MilkCollection = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   
+  // Pagination State for Logs
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // New States for Admin Editing & Date Filtering
   const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
   const [editingId, setEditingId] = useState(null);
@@ -22,14 +26,9 @@ const MilkCollection = () => {
     quantity: '', fat: '', snf: '', shift: 'MORNING'
   });
 
-  // 1. Fetch Initial Data (Farmers + Logs for selected Date)
-  useEffect(() => {
-    fetchFarmers();
-  }, []);
-
-  useEffect(() => {
-    fetchLogs();
-  }, [logDate]);
+  // 1. Fetch Initial Data
+  useEffect(() => { fetchFarmers(); }, []);
+  useEffect(() => { fetchLogs(); }, [logDate]);
 
   const fetchFarmers = async () => {
     try {
@@ -43,6 +42,7 @@ const MilkCollection = () => {
     try {
       const res = await axios.get(`https://dairy-erp-backend.onrender.com/api/collections?date=${logDate}`);
       setEntries(res.data);
+      setCurrentPage(1); // Reset to page 1 on new date
     } catch (err) { console.error("Logs Fetch Error"); }
     setLoading(false);
   };
@@ -56,15 +56,20 @@ const MilkCollection = () => {
       await axios.post('https://dairy-erp-backend.onrender.com/api/collections', {
         farmerId: selectedFarmer.id,
         quantity: formData.quantity,
-        fat: formData.fat || 0, // Optional
-        snf: formData.snf || 0, // Optional
+        fat: formData.fat || 0,
+        snf: formData.snf || 0,
         shift: formData.shift,
-        date: logDate // Uses the date currently selected in the admin filter
+        date: logDate
       });
       
       setFormData({ quantity: '', fat: '', snf: '', shift: formData.shift });
       setSelectedFarmer(null);
-      fetchLogs();
+      
+      // --- THE FIX: RELOAD AND JUMP TO PAGE 1 ---
+      await fetchLogs(); 
+      setCurrentPage(1); 
+      // ------------------------------------------
+
       alert("Milk Entry Saved!");
     } catch (err) { alert("Error saving transaction."); }
   };
@@ -84,10 +89,20 @@ const MilkCollection = () => {
     } catch (err) { alert("Update Failed"); }
   };
 
+  // --- FILTERING & PAGINATION LOGIC ---
+  
+  // 1. Filter Farmers (Show only top 50 if no search, otherwise show matches)
   const filteredFarmers = farmers.filter(f => 
-    f.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    f.farmerCode.includes(searchTerm)
+    (f.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    f.farmerCode.includes(searchTerm)) && f.active // Only show active farmers
   );
+  const displayedFarmers = filteredFarmers.slice(0, 50); // Limit list to prevent lag
+
+  // 2. Pagination for Logs
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentLogs = entries.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(entries.length / itemsPerPage);
 
   return (
     <div className="w-full animate-in fade-in duration-500">
@@ -103,7 +118,7 @@ const MilkCollection = () => {
             </div>
         </div>
         
-        {/* Date Filter with BS Display */}
+        {/* Date Filter */}
         <div className="flex items-center gap-2">
             <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
                 <Calendar className="text-blue-500 ml-2" size={18} />
@@ -111,7 +126,6 @@ const MilkCollection = () => {
                     type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)}
                     className="bg-transparent font-black text-slate-700 outline-none"
                 />
-                {/* BS DATE BADGE */}
                 <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black border border-blue-100">
                     {formatBS(logDate)} BS
                 </div>
@@ -121,20 +135,20 @@ const MilkCollection = () => {
 
       <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* LEFT: FARMER SELECTION */}
+        {/* LEFT: FARMER SELECTION (LIMITED LIST) */}
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 h-full flex flex-col">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">1. Identify Farmer</h3>
             <div className="relative mb-6">
               <Search className="absolute left-3 top-3.5 text-slate-400" size={18} />
               <input 
-                type="text" placeholder="Search by name or code..." 
+                type="text" placeholder="Search name or code..." 
                 className="w-full pl-10 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 font-bold transition-all"
                 value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar min-h-[400px]">
-              {filteredFarmers.map(f => (
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar max-h-[500px]">
+              {displayedFarmers.map(f => (
                 <div key={f.id} onClick={() => setSelectedFarmer(f)}
                   className={`p-4 rounded-2xl cursor-pointer transition-all border-2 ${selectedFarmer?.id === f.id ? 'bg-blue-600 border-blue-600 shadow-xl text-white' : 'bg-white border-slate-50 hover:border-blue-100'}`}
                 >
@@ -142,12 +156,15 @@ const MilkCollection = () => {
                   <div className={`text-[10px] font-bold mt-1 ${selectedFarmer?.id === f.id ? 'text-blue-100' : 'text-slate-400'}`}>Type: {f.milkType}</div>
                 </div>
               ))}
+              {filteredFarmers.length === 0 && <div className="text-center text-slate-400 text-xs py-4">No active farmer found</div>}
             </div>
           </div>
         </div>
 
         {/* RIGHT: ENTRY FORM & LOGS */}
         <div className="lg:col-span-8 space-y-6">
+          
+          {/* ENTRY FORM */}
           <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">2. Quick Intake Entry</h3>
@@ -170,12 +187,12 @@ const MilkCollection = () => {
                     {selectedFarmer.rateType !== 'FIXED' && (
                         <>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Fat % (Optional)</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Fat %</label>
                             <input type="number" step="0.1" value={formData.fat} onChange={(e) => setFormData({...formData, fat: e.target.value})}
                                 className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl text-2xl font-black text-slate-900 outline-none focus:border-blue-500" placeholder="0.0" />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">SNF % (Optional)</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">SNF %</label>
                             <input type="number" step="0.1" value={formData.snf} onChange={(e) => setFormData({...formData, snf: e.target.value})}
                                 className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl text-2xl font-black text-slate-900 outline-none focus:border-blue-500" placeholder="0.0" />
                         </div>
@@ -193,12 +210,12 @@ const MilkCollection = () => {
             )}
           </div>
 
-          {/* ADMIN EDITABLE HISTORY LOG */}
+          {/* PAGINATED LOGS */}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6 border-b flex items-center justify-between">
                 <div>
                     <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">Intake Logs: {logDate}</h3>
-                    <p className="text-[10px] font-bold text-blue-500 uppercase mt-1">Nepali Date: {formatBS(logDate)}</p>
+                    <p className="text-[10px] font-bold text-blue-500 uppercase mt-1">Total Entries: {entries.length}</p>
                 </div>
                 <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full">ADMIN EDIT MODE</span>
             </div>
@@ -214,7 +231,7 @@ const MilkCollection = () => {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                    {entries.map(entry => (
+                    {currentLogs.map(entry => (
                     <tr key={entry.id} className="hover:bg-blue-50/20 transition-colors group">
                         <td className="px-8 py-5 font-black text-slate-800">{entry.farmer.name}</td>
                         <td className="px-8 py-5 text-[10px] font-black text-slate-400">{entry.shift}</td>
@@ -249,6 +266,27 @@ const MilkCollection = () => {
                     ))}
                 </tbody>
                 </table>
+                
+                {/* PAGINATION CONTROLS */}
+                {entries.length > itemsPerPage && (
+                    <div className="flex justify-between items-center p-4 bg-slate-50 border-t">
+                        <button 
+                            disabled={currentPage === 1} 
+                            onClick={() => setCurrentPage(prev => prev - 1)}
+                            className="p-2 bg-white border rounded-lg disabled:opacity-50 hover:bg-slate-100"
+                        >
+                            <ChevronLeft size={16}/>
+                        </button>
+                        <span className="text-xs font-bold text-slate-500">Page {currentPage} of {totalPages}</span>
+                        <button 
+                            disabled={currentPage === totalPages} 
+                            onClick={() => setCurrentPage(prev => prev + 1)}
+                            className="p-2 bg-white border rounded-lg disabled:opacity-50 hover:bg-slate-100"
+                        >
+                            <ChevronRight size={16}/>
+                        </button>
+                    </div>
+                )}
             </div>
           </div>
         </div>
