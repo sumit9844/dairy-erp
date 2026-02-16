@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const productController = require('../controllers/productController');
+const productionController = require('../controllers/productionController');
 
-router.get('/', productController.getProducts);
-router.post('/', productController.addProduct);
-router.post('/add-stock', productController.addStock); // <--- New
-router.get('/history', productController.getStockHistory); // <--- New
+// This handles: GET https://dairy-erp-backend.onrender.com/api/production
+router.get('/', productionController.getProductionHistory);
+
+// This handles: POST https://dairy-erp-backend.onrender.com/api/production
+router.post('/', productionController.addProduction);
 
 module.exports = router;

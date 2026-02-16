@@ -2,10 +2,12 @@ const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
 
-// URL will be: GET /api/products
+// Standard Routes
 router.get('/', productController.getProducts);
-
-// URL will be: POST /api/products
 router.post('/', productController.addProduct);
+
+// New Inventory Routes
+router.post('/add-stock', productController.addStock);
+router.get('/history', productController.getStockHistory);
 
 module.exports = router;
