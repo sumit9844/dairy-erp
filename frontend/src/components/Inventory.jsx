@@ -11,7 +11,7 @@ const Inventory = () => {
   const [view, setView] = useState('stock'); // 'stock' or 'define'
   
   // Forms
-  const [newProduct, setNewProduct] = useState({ name: '', unit: 'KG' });
+  const [newProduct, setNewProduct] = useState({ name: '', unit: 'KG', sellingPrice: '' });
   const [stockForm, setStockForm] = useState({ 
     productName: '', 
     quantity: '', 
@@ -81,54 +81,45 @@ const Inventory = () => {
         {/* LEFT: ACTION FORM */}
         <div className="lg:col-span-4 space-y-6">
             <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
-                {view === 'stock' ? (
-                    <form onSubmit={handleAddStock} className="space-y-4">
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Record Daily Production</h3>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase">Select Product</label>
-                            <select 
-                                value={stockForm.productName} 
-                                onChange={e => setStockForm({...stockForm, productName: e.target.value})}
-                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none"
-                            >
-                                {products.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity Made</label>
-                            <input 
-                                type="number" step="0.01" required 
-                                value={stockForm.quantity} onChange={e => setStockForm({...stockForm, quantity: e.target.value})}
-                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-2xl text-slate-900 outline-none" 
-                                placeholder="0.0"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase">Date</label>
-                            <input 
-                                type="date" required 
-                                value={stockForm.date} onChange={e => setStockForm({...stockForm, date: e.target.value})}
-                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none" 
-                            />
-                        </div>
-                        <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 hover:bg-black transition-all">
-                            <ArrowUpCircle size={20} /> ADD TO STOCK
-                        </button>
-                    </form>
-                ) : (
-                    <form onSubmit={handleDefineProduct} className="space-y-4">
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Define New Item</h3>
-                        <input placeholder="Item Name (e.g. Lassi)" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" required />
-                        <select value={newProduct.unit} onChange={e => setNewProduct({...newProduct, unit: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold">
-                            <option value="KG">Kilograms (KG)</option>
-                            <option value="LTR">Liters (LTR)</option>
-                            <option value="PKT">Packets (PKT)</option>
-                        </select>
-                        <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2">
-                            <Plus size={20} /> CREATE ITEM
-                        </button>
-                    </form>
-                )}
+                {view === 'define' && (
+                  <form onSubmit={handleDefineProduct} className="space-y-4">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Define New Item</h3>
+                      
+                      <input 
+                          placeholder="Item Name (e.g. Lassi)" 
+                          value={newProduct.name} 
+                          onChange={e => setNewProduct({...newProduct, name: e.target.value})} 
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" 
+                          required 
+                      />
+                      
+                      {/* NEW PRICE INPUT */}
+                      <input 
+                          type="number" 
+                          placeholder="Selling Price (₹)" 
+                          value={newProduct.sellingPrice} 
+                          onChange={e => setNewProduct({...newProduct, sellingPrice: e.target.value})} 
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" 
+                          required 
+                      />
+
+                      <select 
+                          value={newProduct.unit} 
+                          onChange={e => setNewProduct({...newProduct, unit: e.target.value})} 
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
+                      >
+                          <option value="KG">Kilograms (KG)</option>
+                          <option value="LTR">Liters (LTR)</option>
+                          <option value="PKT">Packets (PKT)</option>
+                          <option value="PCS">Pieces (PCS)</option>
+                      </select>
+
+                      <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2">
+                          <Plus size={20} /> CREATE ITEM
+                      </button>
+                  </form>
+              )}
+                
             </div>
 
             {/* RECENT LOGS */}
