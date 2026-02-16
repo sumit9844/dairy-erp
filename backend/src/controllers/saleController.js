@@ -48,3 +48,43 @@ exports.getAllSales = async (req, res) => {
     const sales = await prisma.sale.findMany({ orderBy: { date: 'desc' } });
     res.json(sales);
 };
+
+// NEW: Delete Sale and Restore Stock
+exports.deleteSale = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1. Find the sale first to know what was sold
+        const sale = await prisma.sale.findUnique({
+            where: { id }
+        });
+
+        if (!sale) return res.status(404).json({ error: "Sale not found" });
+
+        // 2. Perform Transaction: Restore Stock -> Delete Record
+        await prisma.$transaction(async (tx) => {
+            // If the sale was linked to a specific product name, restore the stock
+            if (sale.quantity > 0) {
+                // Try to find the product by name (since we stored productName string)
+                // Note: This relies on the product name matching. 
+                // If you want strict linking, we use productId, but productName is safer for legacy data.
+                try {
+                    await tx.product.update({
+                        where: { name: sale.productName || "" }, // Handle if name is missing
+                        data: { stock: { increment: sale.quantity } }
+                    });
+                } catch (e) {
+                    // Ignore stock update if product no longer exists, just delete sale
+                    console.log("Product not found for restock, skipping...");
+                }
+            }
+
+            // Delete the sale record
+            await tx.sale.delete({ where: { id } });
+        });
+
+        res.json({ message: "Sale deleted and stock restored" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
