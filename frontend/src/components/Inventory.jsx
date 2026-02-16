@@ -3,15 +3,14 @@ import axios from 'axios';
 import { formatBS } from '../utils/dateHelper';
 import { 
     Package, Plus, History, ArrowUpCircle, PackageCheck, AlertTriangle, 
-    Loader2, Trash2, Edit3, Save, X, Check 
+    Loader2, Trash2, Edit3, Check, X 
 } from 'lucide-react';
 
 const Inventory = () => {
   const [products, setProducts] = useState([]);
   const [history, setHistory] = useState([]);
-  const [view, setView] = useState('stock'); // 'stock' or 'define'
-  const [loading, setLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Prevents double clicks
+  const [view, setView] = useState('stock'); 
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Forms
   const [newProduct, setNewProduct] = useState({ name: '', unit: 'KG', sellingPrice: '' });
@@ -36,29 +35,27 @@ const Inventory = () => {
       setProducts(prodRes.data);
       setHistory(histRes.data);
       
-      // Auto-select first product for stock form
+      // Auto-select first product if available
       if (prodRes.data.length > 0 && !stockForm.productName) {
         setStockForm(prev => ({ ...prev, productName: prodRes.data[0].name }));
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("Fetch Error:", err); }
   };
-
-  // --- ACTIONS ---
 
   const handleDefineProduct = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return; // Stop double clicks
+    if (isSubmitting) return;
 
     setIsSubmitting(true);
     try {
       await axios.post('https://dairy-erp-backend.onrender.com/api/products', newProduct);
       alert("New Product Defined!");
       setNewProduct({ name: '', unit: 'KG', sellingPrice: '' });
-      fetchData();
+      fetchData(); // Refresh list
     } catch (err) { 
         alert(err.response?.data?.error || "Error creating product"); 
     } finally {
-        setIsSubmitting(false); // Re-enable button
+        setIsSubmitting(false);
     }
   };
 
@@ -72,8 +69,11 @@ const Inventory = () => {
       alert("Stock Added Successfully!");
       setStockForm({ ...stockForm, quantity: '' });
       fetchData();
-    } catch (err) { alert("Error adding stock"); }
-    finally { setIsSubmitting(false); }
+    } catch (err) { 
+        alert(err.response?.data?.error || "Error adding stock"); 
+    } finally { 
+        setIsSubmitting(false); 
+    }
   };
 
   const handleDeleteProduct = async (id) => {
@@ -82,7 +82,7 @@ const Inventory = () => {
         await axios.delete(`https://dairy-erp-backend.onrender.com/api/products/${id}`);
         fetchData();
     } catch (err) {
-        alert(err.response?.data?.error || "Delete failed. Product might have sales history.");
+        alert(err.response?.data?.error || "Delete failed.");
     }
   };
 
@@ -134,30 +134,19 @@ const Inventory = () => {
                                 onChange={e => setStockForm({...stockForm, productName: e.target.value})}
                                 className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none"
                             >
+                                {products.length === 0 && <option>Loading products...</option>}
                                 {products.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                             </select>
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity Made</label>
-                            <input 
-                                type="number" step="0.01" required 
-                                value={stockForm.quantity} onChange={e => setStockForm({...stockForm, quantity: e.target.value})}
-                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-2xl text-slate-900 outline-none" 
-                                placeholder="0.0"
-                            />
+                            <input type="number" step="0.01" required value={stockForm.quantity} onChange={e => setStockForm({...stockForm, quantity: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-2xl text-slate-900 outline-none" placeholder="0.0" />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase">Date</label>
-                            <input 
-                                type="date" required 
-                                value={stockForm.date} onChange={e => setStockForm({...stockForm, date: e.target.value})}
-                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none" 
-                            />
+                            <input type="date" required value={stockForm.date} onChange={e => setStockForm({...stockForm, date: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-900 outline-none" />
                         </div>
-                        <button 
-                            type="submit" disabled={isSubmitting}
-                            className={`w-full py-4 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 transition-all ${isSubmitting ? 'bg-slate-400' : 'bg-slate-900 hover:bg-black text-white'}`}
-                        >
+                        <button type="submit" disabled={isSubmitting} className={`w-full py-4 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 transition-all ${isSubmitting ? 'bg-slate-400' : 'bg-slate-900 hover:bg-black text-white'}`}>
                             {isSubmitting ? <Loader2 className="animate-spin"/> : <><ArrowUpCircle size={20} /> ADD TO STOCK</>}
                         </button>
                     </form>
@@ -172,10 +161,7 @@ const Inventory = () => {
                             <option value="PKT">Packets (PKT)</option>
                             <option value="PCS">Pieces (PCS)</option>
                         </select>
-                        <button 
-                            type="submit" disabled={isSubmitting}
-                            className={`w-full py-4 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 transition-all ${isSubmitting ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-                        >
+                        <button type="submit" disabled={isSubmitting} className={`w-full py-4 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 transition-all ${isSubmitting ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
                             {isSubmitting ? <Loader2 className="animate-spin"/> : <><Plus size={20} /> CREATE ITEM</>}
                         </button>
                     </form>
@@ -191,10 +177,7 @@ const Inventory = () => {
                 <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-2">
                     {history.map(log => (
                         <div key={log.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
-                            <div>
-                                <p className="text-xs font-black text-slate-700">{log.productName}</p>
-                                <p className="text-[9px] font-bold text-slate-400">{formatBS(log.date)}</p>
-                            </div>
+                            <div><p className="text-xs font-black text-slate-700">{log.productName}</p><p className="text-[9px] font-bold text-slate-400">{formatBS(log.date)}</p></div>
                             <span className="text-xs font-black text-emerald-600">+{log.outputQty}</span>
                         </div>
                     ))}
@@ -207,20 +190,16 @@ const Inventory = () => {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                 {products.map(p => (
                     <div key={p.id} className={`p-6 rounded-[2rem] border transition-all relative ${p.stock <= 0 ? 'bg-red-50 border-red-100' : 'bg-white border-slate-200'}`}>
-                        
-                        {/* CARD HEADER */}
                         <div className="flex justify-between items-start mb-4">
                             <div className={`p-3 rounded-xl ${p.stock <= 0 ? 'bg-red-200 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                 {p.stock <= 0 ? <AlertTriangle size={20}/> : <PackageCheck size={20}/>}
                             </div>
-                            {/* ACTION BUTTONS (Only visible on hover or edit) */}
                             <div className="flex gap-2">
                                 <button onClick={() => startEdit(p)} className="text-slate-300 hover:text-blue-600"><Edit3 size={16}/></button>
                                 <button onClick={() => handleDeleteProduct(p.id)} className="text-slate-300 hover:text-red-600"><Trash2 size={16}/></button>
                             </div>
                         </div>
 
-                        {/* EDIT MODE vs VIEW MODE */}
                         {editingId === p.id ? (
                             <div className="space-y-2 animate-in fade-in">
                                 <input className="w-full p-2 text-sm font-bold border rounded-lg" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} placeholder="Name" />
@@ -233,9 +212,7 @@ const Inventory = () => {
                         ) : (
                             <>
                                 <h3 className="text-lg font-black text-slate-800 mb-1">{p.name}</h3>
-                                <p className={`text-3xl font-black ${p.stock <= 0 ? 'text-red-600' : 'text-slate-800'}`}>
-                                    {p.stock}
-                                </p>
+                                <p className={`text-3xl font-black ${p.stock <= 0 ? 'text-red-600' : 'text-slate-800'}`}>{p.stock}</p>
                                 <div className="flex justify-between items-end mt-2">
                                     <p className="text-[10px] font-bold text-slate-400 uppercase">Stock ({p.unit})</p>
                                     <p className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded">₹{p.sellingPrice}</p>
