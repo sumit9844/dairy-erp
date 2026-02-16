@@ -1,53 +1,61 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-exports.addProduction = async (req, res) => {
+exports.getProducts = async (req, res) => {
     try {
-        const { productName, milkUsed, milkType, outputQty, notes } = req.body;
-        const out = parseFloat(outputQty);
-        const used = parseFloat(milkUsed);
+        const products = await prisma.product.findMany({ orderBy: { name: 'asc' } });
+        res.json(products);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
 
-        // 1. Check if the product exists in Inventory first
-        const productExists = await prisma.product.findUnique({
-            where: { name: productName }
-        });
+exports.addProduct = async (req, res) => {
+    try {
+        const { name, unit } = req.body;
+        const product = await prisma.product.create({ data: { name, unit, stock: 0 } });
+        res.status(201).json(product);
+    } catch (error) { res.status(400).json({ error: "Product already exists" }); }
+};
 
-        if (!productExists) {
-            return res.status(400).json({ 
-                error: `Product "${productName}" not found in Inventory. Please add it in the Inventory tab first.` 
-            });
-        }
+// NEW: Add Stock (Simple Production)
+exports.addStock = async (req, res) => {
+    try {
+        const { productName, quantity, date } = req.body;
+        const qty = parseFloat(quantity);
 
-        // 2. Perform Transaction: Create Log + Update Stock
-        const result = await prisma.$transaction([
-            prisma.production.create({
-                data: { 
-                    productName, 
-                    milkUsed: used, 
-                    milkType, 
-                    outputQty: out, 
-                    yield: (out / used) * 100, 
-                    notes 
-                }
-            }),
+        // Transaction: Update Stock AND Create Log
+        await prisma.$transaction([
             prisma.product.update({
                 where: { name: productName },
-                data: { stock: { increment: out } }
+                data: { stock: { increment: qty } }
+            }),
+            // We use the 'Production' table as a log. 
+            // milkUsed is 0 because we are just tracking output now.
+            prisma.production.create({
+                data: {
+                    productName,
+                    outputQty: qty,
+                    milkUsed: 0,
+                    milkType: 'NA',
+                    yield: 0,
+                    date: new Date(date),
+                    notes: 'Direct Stock Addition'
+                }
             })
         ]);
-        
-        res.status(201).json(result[0]);
+
+        res.json({ message: "Stock Added Successfully" });
     } catch (error) {
-        console.error("Production Error:", error);
-        res.status(500).json({ error: "Server Error: " + error.message });
+        res.status(500).json({ error: "Failed to add stock" });
     }
 };
 
-exports.getProductionHistory = async (req, res) => {
+// NEW: Get Stock History
+exports.getStockHistory = async (req, res) => {
     try {
-        const history = await prisma.production.findMany({ orderBy: { date: 'desc' } });
+        const history = await prisma.production.findMany({
+            orderBy: { date: 'desc' },
+            take: 50 // Limit to last 50 records for pagination logic
+        });
         res.json(history);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 };

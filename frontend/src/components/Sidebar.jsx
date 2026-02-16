@@ -21,7 +21,7 @@ const Sidebar = ({ currentView, setCurrentView }) => {
     { id: 'farmers', label: 'Farmer Directory', icon: <Users size={20}/> },
     { id: 'register-farmer', label: 'New Registration', icon: <UserPlus size={20}/> },
     { id: 'collection', label: 'Milk Collection', icon: <ClipboardList size={20}/> },
-    { id: 'production', label: 'Production / Batches', icon: <Beaker size={20}/> },
+    //{ id: 'production', label: 'Production / Batches', icon: <Beaker size={20}/> },
     { id: 'inventory', label: 'Inventory / Stock', icon: <Package size={20}/> }, // <--- NEW
     { id: 'sales', label: 'Sales & Dispatch', icon: <Truck size={20}/> },
     { id: 'settlement', label: 'Billing & Settlement', icon: <FileText size={20}/> },

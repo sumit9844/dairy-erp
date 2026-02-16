@@ -11,7 +11,7 @@ import Settings from './components/Settings';
 import Expenses from './components/Expenses';
 import Sales from './components/Sales';
 import Login from './components/Login';
-import Production from './components/Production';
+//import Production from './components/Production';
 import Inventory from './components/Inventory'; // <--- ADDED
 import Reports from './components/Reports'; // 1. Import
 
@@ -46,7 +46,7 @@ function App() {
       case 'advances': return <Advances />;
       case 'expenses': return <Expenses />;
       case 'sales': return <Sales />;
-      case 'production': return <Production />;
+      //case 'production': return <Production />;
       case 'inventory': return <Inventory />; // <--- ADDED
       case 'settings': return <Settings />;
       case 'reports': return <Reports />; // 2. Add Case
