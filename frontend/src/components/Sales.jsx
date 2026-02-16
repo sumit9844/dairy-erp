@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-  Truck, PlusCircle, TrendingUp, Package, ShoppingCart, 
+  Truck, PlusCircle, ShoppingCart, 
   Trash2, Minus, Plus, Store, Receipt, User, Check, 
-  Printer, X, History, ChevronLeft, ChevronRight 
+  Printer, X, History, ChevronLeft, ChevronRight, Save
 } from 'lucide-react';
 
 const Sales = () => {
@@ -54,11 +54,10 @@ const Sales = () => {
 
   // --- REPRINT LOGIC ---
   const handleReprint = (saleItem) => {
-    // Convert single sale record into invoice format
     setCurrentInvoice({
         customer: saleItem.customerName,
         items: [{ 
-            productName: saleItem.productName || "Product", // Fallback if name missing
+            productName: saleItem.productName || "Product",
             quantity: saleItem.quantity, 
             rate: saleItem.rate, 
             total: saleItem.totalAmount 
@@ -97,11 +96,13 @@ const Sales = () => {
 
   const removeFromCart = (id) => setCart(cart.filter(item => item.id !== id));
 
+  // --- UPDATED: JUST SAVE, NO PRINT POPUP ---
   const checkoutRetail = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
     setLoading(true);
 
     try {
+      // 1. Send all items to backend
       for (const item of cart) {
         await axios.post('https://dairy-erp-backend.onrender.com/api/sales', {
             customerName: "Local Counter", 
@@ -112,18 +113,14 @@ const Sales = () => {
         });
       }
       
-      setCurrentInvoice({
-        customer: "Local Counter",
-        items: cart.map(i => ({ productName: i.name, quantity: i.qty, rate: i.sellingPrice, total: i.qty * i.sellingPrice })),
-        total: cart.reduce((acc, item) => acc + (item.qty * item.sellingPrice), 0),
-        date: new Date().toLocaleDateString()
-      });
-      setShowInvoice(true);
+      // 2. Success Feedback
+      alert("Sale Saved Successfully!"); 
 
+      // 3. Clear & Refresh
       setCart([]);
-      fetchData();
+      fetchData(); // Updates stock and history list immediately
     } catch (err) {
-      alert("Error processing sale. Check stock levels.");
+      alert("Error processing sale. Check connection.");
     } finally {
       setLoading(false);
     }
@@ -251,10 +248,15 @@ const Sales = () => {
                             </div>
                         </div>
                     ))}
+                    {cart.length === 0 && <div className="text-center text-slate-300 py-10">Cart is empty</div>}
                 </div>
                 <div className="mt-4 pt-4 border-t-2 border-slate-100 bg-slate-50 p-4 rounded-3xl">
                     <div className="flex justify-between items-end mb-4"><span className="text-xs font-bold text-slate-400 uppercase">Total Payable</span><span className="text-3xl font-black text-indigo-600">₹{Math.round(retailTotal).toLocaleString()}</span></div>
-                    <button onClick={checkoutRetail} disabled={loading || cart.length === 0} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-black transition-all active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2">{loading ? "Processing..." : <><Check size={20}/> PAY & PRINT</>}</button>
+                    
+                    {/* UPDATED BUTTON */}
+                    <button onClick={checkoutRetail} disabled={loading || cart.length === 0} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-black transition-all active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2">
+                        {loading ? "Saving..." : <><Save size={20}/> COMPLETE SALE</>}
+                    </button>
                 </div>
             </div>
         </div>
