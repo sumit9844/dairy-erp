@@ -8,4 +8,7 @@ router.post('/', productController.addProduct);
 router.post('/add-stock', productController.addStock);    // <--- This line was crashing
 router.get('/history', productController.getStockHistory);
 
+// --- ADD THESE TWO LINES ---
+router.put('/:id', productController.updateProduct);
+router.delete('/:id', productController.deleteProduct);
 module.exports = router;

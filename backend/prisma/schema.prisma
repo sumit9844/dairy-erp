@@ -107,13 +107,13 @@ model Advance {
 // 5. INVENTORY & PRODUCTION
 // -----------------------------------------
 model Product {
-  id          String   @id @default(uuid())
-  name        String   @unique 
-  unit        String   
-  stock       Float    @default(0)
+  id           String   @id @default(uuid())
+  name         String   @unique 
+  unit         String   
+  stock        Float    @default(0)
+  sellingPrice Float    @default(0) // <--- NEW FIELD
   
-  // This is the field Prisma was complaining about
-  sales       Sale[]   
+  sales        Sale[]   
 }
 
 // -----------------------------------------

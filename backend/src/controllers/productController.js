@@ -67,3 +67,40 @@ exports.getStockHistory = async (req, res) => {
         res.json(history);
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
+
+// ... existing imports and functions
+
+// NEW: Update Product (Name, Unit, Price)
+exports.updateProduct = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, unit, sellingPrice } = req.body;
+        
+        const updated = await prisma.product.update({
+            where: { id },
+            data: { 
+                name, 
+                unit,
+                sellingPrice: parseFloat(sellingPrice) || 0 
+            }
+        });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// NEW: Delete Product
+exports.deleteProduct = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await prisma.product.delete({ where: { id } });
+        res.json({ message: "Product deleted successfully" });
+    } catch (error) {
+        // If product has sales history, Prisma prevents delete to keep accounting safe
+        if (error.code === 'P2003') {
+            return res.status(400).json({ error: "Cannot delete: This product has sales history. You can rename it instead." });
+        }
+        res.status(500).json({ error: error.message });
+    }
+};
