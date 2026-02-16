@@ -3,7 +3,7 @@ import axios from 'axios';
 import { 
   Truck, PlusCircle, TrendingUp, Package, ShoppingCart, 
   Trash2, Minus, Plus, Store, Receipt, User, Check, 
-  Printer, X, History, FileText 
+  Printer, X, History, ChevronLeft, ChevronRight 
 } from 'lucide-react';
 
 const Sales = () => {
@@ -12,6 +12,10 @@ const Sales = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [companyInfo, setCompanyInfo] = useState(null);
+
+  // --- PAGINATION STATE ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // --- RETAIL STATE ---
   const [cart, setCart] = useState([]);
@@ -23,7 +27,7 @@ const Sales = () => {
   
   // --- INVOICE PRINT STATE ---
   const [showInvoice, setShowInvoice] = useState(false);
-  const [currentInvoice, setCurrentInvoice] = useState(null); // Stores data for the bill popup
+  const [currentInvoice, setCurrentInvoice] = useState(null);
 
   useEffect(() => { 
     fetchData(); 
@@ -40,6 +44,29 @@ const Sales = () => {
       setProducts(prodRes.data);
       setCompanyInfo(settingsRes.data);
     } catch (err) { console.error(err); }
+  };
+
+  // --- PAGINATION LOGIC ---
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentHistory = salesHistory.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(salesHistory.length / itemsPerPage);
+
+  // --- REPRINT LOGIC ---
+  const handleReprint = (saleItem) => {
+    // Convert single sale record into invoice format
+    setCurrentInvoice({
+        customer: saleItem.customerName,
+        items: [{ 
+            productName: saleItem.productName || "Product", // Fallback if name missing
+            quantity: saleItem.quantity, 
+            rate: saleItem.rate, 
+            total: saleItem.totalAmount 
+        }],
+        total: saleItem.totalAmount,
+        date: new Date(saleItem.date).toLocaleDateString()
+    });
+    setShowInvoice(true);
   };
 
   // ==============================
@@ -85,19 +112,18 @@ const Sales = () => {
         });
       }
       
-      // Prepare Invoice for Printing
       setCurrentInvoice({
         customer: "Local Counter",
         items: cart.map(i => ({ productName: i.name, quantity: i.qty, rate: i.sellingPrice, total: i.qty * i.sellingPrice })),
         total: cart.reduce((acc, item) => acc + (item.qty * item.sellingPrice), 0),
         date: new Date().toLocaleDateString()
       });
-      setShowInvoice(true); // Show Print Modal
+      setShowInvoice(true);
 
       setCart([]);
       fetchData();
     } catch (err) {
-      alert("Error processing sale.");
+      alert("Error processing sale. Check stock levels.");
     } finally {
       setLoading(false);
     }
@@ -137,14 +163,13 @@ const Sales = () => {
             });
         }
         
-        // Prepare Invoice for Printing
         setCurrentInvoice({
             customer: customerName,
             items: billItems,
             total: billItems.reduce((acc, item) => acc + item.total, 0),
             date: new Date().toLocaleDateString()
         });
-        setShowInvoice(true); // Show Print Modal
+        setShowInvoice(true);
 
         setBillItems([]);
         setCustomerName("");
@@ -244,7 +269,7 @@ const Sales = () => {
                     <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2"><User size={12}/> Customer / Hotel Name</label><input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full p-4 bg-indigo-50/50 border-2 border-indigo-100 rounded-2xl font-bold text-indigo-900 outline-none focus:border-indigo-500" placeholder="e.g. Hotel Grand" /></div>
                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
                         <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Add Line Item</p>
-                        <select value={currentItem.productName} onChange={e => {const prod = products.find(p => p.name === e.target.value); setCurrentItem({...currentItem, productName: e.target.value, rate: prod ? prod.sellingPrice : '' });}} className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none"><option value="">-- Select Product --</option>{products.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select>
+                        <select value={currentItem.productName} onChange={e => {const prod = products.find(p => p.name === e.target.value); setCurrentItem({...currentItem, productName: e.target.value, rate: prod ? prod.sellingPrice : '' });}} className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none"><option value="">-- Select Product --</option>{products.map(p => <option key={p.id} value={p.name}>{p.name} (Stock: {p.stock})</option>)}</select>
                         <div className="grid grid-cols-2 gap-3"><input type="number" step="0.01" placeholder="Qty" value={currentItem.quantity} onChange={e => setCurrentItem({...currentItem, quantity: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm" /><input type="number" step="0.01" placeholder="Rate" value={currentItem.rate} onChange={e => setCurrentItem({...currentItem, rate: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-indigo-600" /></div>
                         <button onClick={addItemToBill} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold text-xs hover:bg-black transition-all flex justify-center items-center gap-2"><PlusCircle size={16}/> ADD TO LIST</button>
                     </div>
@@ -260,28 +285,69 @@ const Sales = () => {
         </div>
       )}
 
-      {/* --- HISTORY MODE --- */}
+      {/* --- HISTORY MODE (With Pagination & Reprint) --- */}
       {mode === 'HISTORY' && (
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden print:hidden">
             <div className="p-8 border-b border-slate-100 flex justify-between items-center">
                 <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2"><History size={18} /> Transaction History</h3>
                 <span className="text-xs font-bold text-slate-400">{salesHistory.length} Records Found</span>
             </div>
+            
             <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                    <thead><tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b"><th className="px-8 py-5">Date</th><th className="px-8 py-5">Customer</th><th className="px-8 py-5">Product (Item)</th><th className="px-8 py-5 text-center">Volume</th><th className="px-8 py-5 text-right">Revenue</th></tr></thead>
+                    <thead>
+                        <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">
+                            <th className="px-8 py-5">Date</th>
+                            <th className="px-8 py-5">Customer</th>
+                            <th className="px-8 py-5">Product (Item)</th>
+                            <th className="px-8 py-5 text-center">Volume</th>
+                            <th className="px-8 py-5 text-right">Revenue</th>
+                            <th className="px-8 py-5 text-right">Reprint</th>
+                        </tr>
+                    </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {salesHistory.map(s => (
-                            <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                        {currentHistory.map(s => (
+                            <tr key={s.id} className="hover:bg-slate-50/80 transition-colors group">
                                 <td className="px-8 py-5 text-xs font-bold text-slate-500">{new Date(s.date).toLocaleDateString()}</td>
                                 <td className="px-8 py-5 font-black text-slate-800 uppercase">{s.customerName}</td>
-                                <td className="px-8 py-5 text-sm font-medium text-slate-600">{s.quantity} x Item</td>
-                                <td className="px-8 py-5 text-center font-bold text-indigo-600">{s.quantity.toFixed(1)}</td>
+                                <td className="px-8 py-5 text-sm font-medium text-slate-600">
+                                    {s.quantity} {s.productName ? `x ${s.productName}` : 'x Item'}
+                                </td>
+                                <td className="px-8 py-5 text-center font-bold text-indigo-600">{s.quantity.toFixed(2)}</td>
                                 <td className="px-8 py-5 text-right font-black text-emerald-600">₹{s.totalAmount.toLocaleString()}</td>
+                                <td className="px-8 py-5 text-right">
+                                    <button 
+                                        onClick={() => handleReprint(s)}
+                                        className="p-2 bg-slate-100 rounded-full hover:bg-indigo-100 hover:text-indigo-600 transition-all text-slate-400"
+                                    >
+                                        <Printer size={16} />
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
+                
+                {/* PAGINATION CONTROLS */}
+                {salesHistory.length > itemsPerPage && (
+                    <div className="flex justify-between items-center p-4 bg-slate-50 border-t border-slate-100">
+                        <button 
+                            disabled={currentPage === 1} 
+                            onClick={() => setCurrentPage(prev => prev - 1)}
+                            className="p-2 bg-white border rounded-lg disabled:opacity-50 hover:bg-slate-100 transition-all"
+                        >
+                            <ChevronLeft size={16}/>
+                        </button>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Page {currentPage} of {totalPages}</span>
+                        <button 
+                            disabled={currentPage === totalPages} 
+                            onClick={() => setCurrentPage(prev => prev + 1)}
+                            className="p-2 bg-white border rounded-lg disabled:opacity-50 hover:bg-slate-100 transition-all"
+                        >
+                            <ChevronRight size={16}/>
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
       )}
@@ -305,12 +371,12 @@ const Sales = () => {
                     
                     <div className="flex justify-between text-xs font-bold text-slate-600 mb-4">
                         <span>{currentInvoice.date}</span>
-                        <span>{currentInvoice.customer}</span>
+                        <span className="uppercase">{currentInvoice.customer}</span>
                     </div>
 
                     <div className="space-y-2 mb-6">
                         {currentInvoice.items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-sm">
+                            <div key={idx} className="flex justify-between text-sm border-b border-slate-50 pb-1">
                                 <span className="text-slate-800 font-medium">{item.productName} <span className="text-[10px] text-slate-400">x{item.quantity}</span></span>
                                 <span className="font-black text-slate-900">₹{item.total.toFixed(2)}</span>
                             </div>
