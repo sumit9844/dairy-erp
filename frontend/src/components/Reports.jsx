@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { formatBS } from '../utils/dateHelper';
-import { FileText, Calendar, Printer, Filter, ArrowDownCircle, ArrowUpCircle, Download } from 'lucide-react';
+import { 
+  FileText, Calendar, Printer, ArrowDownCircle, ArrowUpCircle, 
+  ChevronLeft, ChevronRight, Filter 
+} from 'lucide-react';
 
 const Reports = () => {
   const [data, setData] = useState({ ledger: [], totals: { totalDebit: 0, totalCredit: 0 } });
   const [loading, setLoading] = useState(false);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20; // Shows 20 records per page
+
   const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], // First day of month
-    end: new Date().toISOString().split('T')[0] // Today
+    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], 
+    end: new Date().toISOString().split('T')[0] 
   });
 
   useEffect(() => {
@@ -20,6 +28,7 @@ const Reports = () => {
     try {
       const res = await axios.get(`https://dairy-erp-backend.onrender.com/api/dashboard/ledger?startDate=${dateRange.start}&endDate=${dateRange.end}`);
       setData(res.data);
+      setCurrentPage(1); // Reset to page 1 when data changes
     } catch (err) {
       console.error("Ledger error", err);
     } finally {
@@ -29,17 +38,31 @@ const Reports = () => {
 
   const netBalance = data.totals.totalCredit - data.totals.totalDebit;
 
+  // --- PAGINATION LOGIC ---
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentRows = data.ledger.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(data.ledger.length / itemsPerPage);
+
+  const nextPage = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
   return (
     <div className="w-full animate-in fade-in duration-500 pb-20">
       
       {/* 1. CONTROL PANEL */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-6 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200">
         <div>
             <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
                 <FileText className="text-blue-600" /> Financial Ledger
             </h1>
             <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">
-                General Accounting Book
+                General Accounting Book ({data.ledger.length} Records)
             </p>
         </div>
 
@@ -62,14 +85,14 @@ const Reports = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 print:hidden">
         <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-3xl flex justify-between items-center">
             <div>
-                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Total Income (Credit)</p>
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Total Credit (In)</p>
                 <h3 className="text-2xl font-black text-emerald-700">+ ₹{data.totals.totalCredit.toLocaleString()}</h3>
             </div>
             <ArrowUpCircle className="text-emerald-400" size={32} />
         </div>
         <div className="p-6 bg-red-50 border border-red-100 rounded-3xl flex justify-between items-center">
             <div>
-                <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">Total Expense (Debit)</p>
+                <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">Total Debit (Out)</p>
                 <h3 className="text-2xl font-black text-red-700">- ₹{data.totals.totalDebit.toLocaleString()}</h3>
             </div>
             <ArrowDownCircle className="text-red-400" size={32} />
@@ -83,60 +106,79 @@ const Reports = () => {
         </div>
       </div>
 
-      {/* 3. THE LEDGER TABLE */}
-      <div className="bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden min-h-[500px]">
+      {/* 3. THE LEDGER TABLE (Paginated) */}
+      <div className="bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
             <table className="w-full text-left">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
                     <tr className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                        <th className="px-8 py-5 w-32">Date (BS/AD)</th>
-                        <th className="px-8 py-5 w-24">Type</th>
-                        <th className="px-8 py-5">Description / Particulars</th>
-                        <th className="px-8 py-5 text-right w-40">Debit (Out)</th>
-                        <th className="px-8 py-5 text-right w-40">Credit (In)</th>
+                        <th className="px-8 py-4 w-32">Date</th>
+                        <th className="px-8 py-4 w-32">Category</th>
+                        <th className="px-8 py-4">Description</th>
+                        <th className="px-8 py-4 text-right w-40">Debit</th>
+                        <th className="px-8 py-4 text-right w-40">Credit</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                     {loading ? (
                         <tr><td colSpan="5" className="py-20 text-center font-bold text-slate-300 animate-pulse">Calculating Ledger...</td></tr>
                     ) : data.ledger.length === 0 ? (
-                        <tr><td colSpan="5" className="py-20 text-center font-bold text-slate-300 italic">No transactions found in this period.</td></tr>
+                        <tr><td colSpan="5" className="py-20 text-center font-bold text-slate-300 italic">No transactions found.</td></tr>
                     ) : (
-                        data.ledger.map((row) => (
-                            <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-8 py-4">
+                        currentRows.map((row) => (
+                            <tr key={row.id} className="hover:bg-blue-50/30 transition-colors even:bg-slate-50/30">
+                                <td className="px-8 py-3">
                                     <div className="flex flex-col">
                                         <span className="font-bold text-slate-700 text-xs">{formatBS(row.date)}</span>
-                                        <span className="text-[10px] text-slate-400">{new Date(row.date).toLocaleDateString()}</span>
+                                        <span className="text-[9px] text-slate-400 font-mono">{new Date(row.date).toLocaleDateString()}</span>
                                     </div>
                                 </td>
-                                <td className="px-8 py-4">
+                                <td className="px-8 py-3">
                                     <Badge type={row.type} />
                                 </td>
-                                <td className="px-8 py-4 text-sm font-medium text-slate-600">
+                                <td className="px-8 py-3 text-xs font-bold text-slate-600 truncate max-w-xs">
                                     {row.description}
                                 </td>
-                                <td className="px-8 py-4 text-right text-sm font-bold text-red-500">
+                                <td className="px-8 py-3 text-right text-sm font-bold text-red-500">
                                     {row.debit > 0 ? `₹${row.debit.toLocaleString()}` : '-'}
                                 </td>
-                                <td className="px-8 py-4 text-right text-sm font-bold text-emerald-600">
+                                <td className="px-8 py-3 text-right text-sm font-bold text-emerald-600">
                                     {row.credit > 0 ? `₹${row.credit.toLocaleString()}` : '-'}
                                 </td>
                             </tr>
                         ))
                     )}
                 </tbody>
-                
-                {/* 4. TOTALS FOOTER */}
-                <tfoot className="bg-slate-50 border-t-2 border-slate-200">
-                    <tr className="text-sm font-black text-slate-800">
-                        <td colSpan="3" className="px-8 py-6 text-right uppercase tracking-widest text-slate-500">Total Balance</td>
-                        <td className="px-8 py-6 text-right text-red-600">₹{data.totals.totalDebit.toLocaleString()}</td>
-                        <td className="px-8 py-6 text-right text-emerald-600">₹{data.totals.totalCredit.toLocaleString()}</td>
-                    </tr>
-                </tfoot>
             </table>
         </div>
+
+        {/* 4. PAGINATION FOOTER */}
+        {data.ledger.length > 0 && (
+            <div className="p-4 bg-white border-t border-slate-200 flex justify-between items-center print:hidden">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, data.ledger.length)} of {data.ledger.length}
+                </p>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={prevPage} 
+                        disabled={currentPage === 1}
+                        className="p-2 border rounded-xl hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                        <ChevronLeft size={20} />
+                    </button>
+                    <span className="px-4 py-2 bg-slate-50 rounded-xl text-xs font-black flex items-center">
+                        Page {currentPage}
+                    </span>
+                    <button 
+                        onClick={nextPage} 
+                        disabled={currentPage === totalPages}
+                        className="p-2 border rounded-xl hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                        <ChevronRight size={20} />
+                    </button>
+                </div>
+            </div>
+        )}
       </div>
     </div>
   );
