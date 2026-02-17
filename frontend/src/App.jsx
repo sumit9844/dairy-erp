@@ -11,9 +11,8 @@ import Settings from './components/Settings';
 import Expenses from './components/Expenses';
 import Sales from './components/Sales';
 import Login from './components/Login';
-//import Production from './components/Production';
-import Inventory from './components/Inventory'; // <--- ADDED
-import Reports from './components/Reports'; // 1. Import
+import Production from './components/Production'; // Ensure Production is imported if you are using it
+import Inventory from './components/Inventory';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -33,24 +32,38 @@ function App() {
   const handleLogout = () => {
     localStorage.clear();
     setUser(null);
+    setCurrentView('dashboard');
   };
 
   const renderView = () => {
+    // 1. Security Check: Block Staff from Admin Pages
+    if (user?.role === 'STAFF') {
+        if (['settlement', 'advances', 'expenses', 'settings'].includes(currentView)) {
+            return (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                    <div className="bg-red-50 p-8 rounded-3xl border border-red-100">
+                        <h2 className="text-2xl font-black text-red-600 mb-2">ACCESS DENIED</h2>
+                        <p className="text-slate-500 font-bold">You do not have permission to view this module.</p>
+                    </div>
+                </div>
+            );
+        }
+    }
+
     switch(currentView) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <Dashboard user={user} />;
       case 'register-farmer': return <FarmerManager />;
       case 'farmers': return <FarmerDirectory onSelectFarmer={navigateToProfile} />;
-      case 'farmer-profile': return <FarmerProfile farmer={viewedFarmer} onBack={() => setCurrentView('farmers')} />;
+      case 'farmer-profile': return <FarmerProfile farmer={viewedFarmer} onBack={() => setCurrentView('farmers')} user={user} />;
       case 'collection': return <MilkCollection />;
+      case 'inventory': return <Inventory />;
+      case 'sales': return <Sales />;
+      // Admin Only Views
       case 'settlement': return <Settlement />;
       case 'advances': return <Advances />;
       case 'expenses': return <Expenses />;
-      case 'sales': return <Sales />;
-      //case 'production': return <Production />;
-      case 'inventory': return <Inventory />; // <--- ADDED
       case 'settings': return <Settings />;
-      case 'reports': return <Reports />; // 2. Add Case
-      default: return <Dashboard />;
+      default: return <Dashboard user={user} />;
     }
   };
 
@@ -58,7 +71,15 @@ function App() {
     switch(currentView) {
       case 'dashboard': return 'System Overview';
       case 'farmers': return 'Farmer Directory';
-      case 'inventory': return 'Inventory & Stock Management'; // <--- ADDED
+      case 'register-farmer': return 'New Farmer Registration';
+      case 'farmer-profile': return `Profile: ${viewedFarmer?.name || 'Farmer Details'}`;
+      case 'collection': return 'Milk Collection';
+      case 'settlement': return 'Billing & Settlement';
+      case 'advances': return 'Advance & Loan Tracking';
+      case 'expenses': return 'Expense Management';
+      case 'sales': return 'Sales Terminal';
+      case 'inventory': return 'Inventory & Stock';
+      case 'settings': return 'Business Configuration';
       default: return 'DairyPro ERP';
     }
   };
@@ -66,7 +87,14 @@ function App() {
   if (!user) return <Login onLogin={(u) => setUser(u)} />;
 
   return (
-    <Layout currentView={currentView} setCurrentView={setCurrentView} title={getTitle()} user={user} onLogout={handleLogout}>
+    // We pass 'user' to Layout here. Layout will handle the Sidebar.
+    <Layout 
+        currentView={currentView} 
+        setCurrentView={setCurrentView} 
+        title={getTitle()} 
+        user={user} 
+        onLogout={handleLogout}
+    >
       {renderView()}
     </Layout>
   );

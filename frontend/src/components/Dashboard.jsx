@@ -49,6 +49,8 @@ const Dashboard = () => {
   };
 
   if (loading) return <div className="p-20 text-center font-bold text-slate-400 animate-pulse">ANALYZING DATA...</div>;
+  
+  // Safety Check
   if (!data || !data.milk || !data.finance) return <div className="p-20 text-center text-red-400">Data Unavailable</div>;
 
   const chartData = data.trends?.map(item => ({
@@ -95,10 +97,10 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* 2. KPI CARDS (UPDATED: 5 COLUMNS) */}
+      {/* 2. KPI CARDS (5 COLUMNS NOW) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         
-        {/* NEW CARD: TOTAL MILK */}
+        {/* NEW CARD: TOTAL MILK (BLUE) */}
         <MetricCard 
             title={`Collection (${customDate ? 'Day' : timeRange})`} 
             value={`${(data.milk.totalLiters ?? 0).toFixed(1)} L`} 
@@ -107,11 +109,10 @@ const Dashboard = () => {
         />
 
         <MetricCard 
-            title="Net Profit" 
-            value={`₹${(data.finance.netProfit ?? 0).toLocaleString()}`} 
-            icon={<Activity />} 
-            color={(data.finance.netProfit ?? 0) >= 0 ? "emerald" : "red"} 
-            isProfit={true} 
+            title="Procurement Cost" 
+            value={`₹${(data.milk.totalCost ?? 0).toLocaleString()}`} 
+            icon={<IndianRupee />} 
+            color="orange" 
         />
         
         <MetricCard 
@@ -122,12 +123,13 @@ const Dashboard = () => {
         />
         
         <MetricCard 
-            title="Pending Payments" 
-            value={`₹${(data.finance.pendingPayments ?? 0).toLocaleString()}`} 
-            icon={<Wallet />} 
-            color="red" 
+            title="Net Profit" 
+            value={`₹${(data.finance.netProfit ?? 0).toLocaleString()}`} 
+            icon={<Activity />} 
+            color={(data.finance.netProfit ?? 0) >= 0 ? "emerald" : "red"} 
+            isProfit={true} 
         />
-        
+
         <MetricCard 
             title="Avg Quality" 
             value={`F:${(data.milk.avgFat ?? 0).toFixed(1)} / S:${(data.milk.avgSnf ?? 0).toFixed(1)}`} 
@@ -136,9 +138,10 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* 3. TRENDS & INVENTORY */}
+      {/* 3. TRENDS & FINANCIAL SUMMARY */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
+        {/* CHART */}
         <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
           <div className="flex justify-between items-center mb-8">
             <div>
@@ -163,7 +166,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* FINANCIAL SUMMARY SIDEBAR */}
+        {/* P&L STATEMENT */}
         <div className="bg-[#1e293b] rounded-[2.5rem] p-10 text-white shadow-2xl flex flex-col justify-between">
             <div>
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-8">P&L ({customDate || timeRange})</h3>
@@ -191,7 +194,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* 5. INVENTORY & MILK TYPE */}
+      {/* 4. INVENTORY & MILK TYPE */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
             <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-8">Milk Source Split</h3>
@@ -203,7 +206,7 @@ const Dashboard = () => {
 
         <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
             <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
-                <Package size={16}/> Inventory
+                <Package size={16}/> Inventory Levels
             </h3>
             <div className="grid grid-cols-3 gap-4">
                 {data.inventory?.map((item, i) => (
@@ -222,6 +225,7 @@ const Dashboard = () => {
   );
 };
 
+// UI Components
 const MetricCard = ({ title, value, icon, color, isProfit }) => {
     const colors = { blue: "bg-blue-50 text-blue-600", orange: "bg-orange-50 text-orange-600", indigo: "bg-indigo-50 text-indigo-600", emerald: "bg-emerald-50 text-emerald-600", red: "bg-red-50 text-red-600", purple: "bg-purple-50 text-purple-600" };
     return (
