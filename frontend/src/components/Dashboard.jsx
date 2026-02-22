@@ -22,7 +22,8 @@ const Dashboard = () => {
     fetchData();
   }, [timeRange, customDate]);
 
-  const fetchData = async () => {
+  // Updated Fetch with Auto-Retry Logic
+  const fetchData = async (retryCount = 0) => {
     setLoading(true);
     try {
       let url = `https://dairy-erp-backend.onrender.com/api/dashboard/stats?range=${timeRange}`;
@@ -32,9 +33,19 @@ const Dashboard = () => {
       const res = await axios.get(url);
       setData(res.data);
     } catch (err) {
-      console.error(err);
+      console.error("Dashboard error", err);
+      
+      // If error (500) and we haven't retried 3 times yet, try again in 2 seconds
+      if (retryCount < 3) {
+        console.log(`Retrying connection... (${retryCount + 1}/3)`);
+        setTimeout(() => fetchData(retryCount + 1), 2000);
+        return; // Exit so we don't set loading false yet
+      }
     } finally {
-      setLoading(false);
+      // Only stop loading if we succeeded OR if we ran out of retries
+      if (data || retryCount >= 3) {
+        setLoading(false);
+      }
     }
   };
 
