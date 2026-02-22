@@ -20,18 +20,19 @@ const app = express();
 // ... existing imports ...
 
 // NEW: Database Wake-up Route for Cron Job
+// NEW: Robust Wake-up Route
 app.get('/api/wakeup', async (req, res) => {
   try {
-    // This forces a tiny connection to the database
-    await prisma.user.findFirst({ select: { id: true } }); 
-    res.status(200).send("✅ Database is Awake!");
+    // 1. fast ping to check DB
+    await prisma.$queryRaw`SELECT 1`; 
+    console.log("✅ Cron Ping: Database is Active");
+    res.status(200).send("Database Active");
   } catch (error) {
-    console.error("Wake-up failed:", error);
-    res.status(500).send("❌ Database sleeping");
+    console.error("⚠️ Cron Ping: Server Awake, Database Sleeping/Error:", error.message);
+    // 2. Send 200 OK anyway so Render stays awake and cron-job.org doesn't disable the job
+    res.status(200).send("Server Awake (DB Reconnecting...)");
   }
 });
-
-// ... existing routes (app.use...) ...
 
 app.use(cors());
 app.use(express.json());
