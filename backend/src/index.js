@@ -17,6 +17,22 @@ const backupRoutes = require('./routes/backupRoutes');
 
 const app = express();
 
+// ... existing imports ...
+
+// NEW: Database Wake-up Route for Cron Job
+app.get('/api/wakeup', async (req, res) => {
+  try {
+    // This forces a tiny connection to the database
+    await prisma.user.findFirst({ select: { id: true } }); 
+    res.status(200).send("✅ Database is Awake!");
+  } catch (error) {
+    console.error("Wake-up failed:", error);
+    res.status(500).send("❌ Database sleeping");
+  }
+});
+
+// ... existing routes (app.use...) ...
+
 app.use(cors());
 app.use(express.json());
 
