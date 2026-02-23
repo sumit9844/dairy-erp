@@ -67,6 +67,7 @@ model Product {
 
 model Sale {
   id           String   @id @default(uuid())
+  productName  String   @default("Direct Sale") 
   date         DateTime @default(now())
   customerName String
   quantity     Float
