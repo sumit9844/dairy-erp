@@ -1,90 +1,116 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// ==========================================
+// 1. ADD SALE (With Stock Check & Deduction)
+// ==========================================
 exports.addSale = async (req, res) => {
     try {
         const { customerName, quantity, rate, productName, date } = req.body;
         const qty = parseFloat(quantity);
         const r = parseFloat(rate);
 
-        // 1. Check if we need to update stock
-        if (productName) {
-            const product = await prisma.product.findUnique({ where: { name: productName } });
-            if (!product) {
-                return res.status(400).json({ error: `Product "${productName}" not found in Inventory.` });
-            }
+        // A. Check Product & Stock Level First
+        const product = await prisma.product.findUnique({
+            where: { name: productName }
+        });
+
+        if (!product) {
+            return res.status(404).json({ error: `Product "${productName}" not found.` });
         }
 
-        // 2. Save Sale and Update Stock in a Transaction
-        const result = await prisma.$transaction(async (tx) => {
-            const sale = await tx.sale.create({
+        // CRITICAL: Prevent Negative Stock
+        if (product.stock < qty) {
+            return res.status(400).json({ 
+                error: `Insufficient stock! Only ${product.stock} ${product.unit} available.` 
+            });
+        }
+
+        // B. Perform Transaction: Record Sale + Deduct Stock
+        const result = await prisma.$transaction([
+            // 1. Create Sale
+            prisma.sale.create({
                 data: {
-                    customerName,
+                    customerName: customerName || "Local Counter",
+                    productName,
                     quantity: qty,
                     rate: r,
                     totalAmount: qty * r,
-                    date: date ? new Date(date) : new Date(),
-                    // Optionally link to product if your schema has the relation
+                    date: date ? new Date(date) : new Date()
                 }
-            });
+            }),
+            // 2. Decrement Stock
+            prisma.product.update({
+                where: { name: productName },
+                data: { stock: { decrement: qty } }
+            })
+        ]);
 
-            if (productName) {
-                await tx.product.update({
-                    where: { name: productName },
-                    data: { stock: { decrement: qty } }
-                });
-            }
-            return sale;
-        });
+        // result[0] is the created sale object
+        res.status(201).json(result[0]);
 
-        res.status(201).json(result);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Check if product exists in Inventory first." });
+        console.error("Add Sale Error:", error);
+        res.status(500).json({ error: "Failed to record sale." });
     }
 };
 
+// ==========================================
+// 2. GET ALL SALES (LIFO - Newest First)
+// ==========================================
 exports.getAllSales = async (req, res) => {
-    const sales = await prisma.sale.findMany({ orderBy: { date: 'desc' } });
-    res.json(sales);
+    try {
+        const sales = await prisma.sale.findMany({ 
+            orderBy: { id: 'desc' } // Shows newest sales at top
+        });
+        res.json(sales);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-// NEW: Delete Sale and Restore Stock
+// ==========================================
+// 3. DELETE SALE (Restore Stock)
+// ==========================================
 exports.deleteSale = async (req, res) => {
     try {
         const { id } = req.params;
+        const saleId = parseInt(id);
 
-        // 1. Find the sale first to know what was sold
-        const sale = await prisma.sale.findUnique({
-            where: { id }
-        });
-
-        if (!sale) return res.status(404).json({ error: "Sale not found" });
-
-        // 2. Perform Transaction: Restore Stock -> Delete Record
+        // Interactive Transaction to ensure safety
         await prisma.$transaction(async (tx) => {
-            // If the sale was linked to a specific product name, restore the stock
-            if (sale.quantity > 0) {
-                // Try to find the product by name (since we stored productName string)
-                // Note: This relies on the product name matching. 
-                // If you want strict linking, we use productId, but productName is safer for legacy data.
-                try {
-                    await tx.product.update({
-                        where: { name: sale.productName || "" }, // Handle if name is missing
-                        data: { stock: { increment: sale.quantity } }
-                    });
-                } catch (e) {
-                    // Ignore stock update if product no longer exists, just delete sale
-                    console.log("Product not found for restock, skipping...");
-                }
+            
+            // A. Find the sale to know what quantity to restore
+            const sale = await tx.sale.findUnique({
+                where: { id: saleId }
+            });
+
+            if (!sale) {
+                throw new Error("Sale record not found.");
             }
 
-            // Delete the sale record
-            await tx.sale.delete({ where: { id } });
+            // B. Restore Stock (Increment) if product still exists
+            const productExists = await tx.product.findUnique({
+                where: { name: sale.productName }
+            });
+
+            if (productExists) {
+                await tx.product.update({
+                    where: { name: sale.productName },
+                    data: { stock: { increment: sale.quantity } }
+                });
+            }
+
+            // C. Delete the Sale Record
+            await tx.sale.delete({
+                where: { id: saleId }
+            });
         });
 
-        res.json({ message: "Sale deleted and stock restored" });
+        res.json({ message: "Sale deleted and stock restored successfully." });
+
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error("Delete Error:", error);
+        res.status(500).json({ error: error.message || "Failed to delete sale." });
     }
 };

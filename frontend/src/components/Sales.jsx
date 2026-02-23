@@ -18,7 +18,7 @@ const Sales = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // --- SELECTION STATE (NEW) ---
+  // --- SELECTION STATE ---
   const [selectedIds, setSelectedIds] = useState([]);
 
   // --- RETAIL STATE ---
@@ -46,7 +46,6 @@ const Sales = () => {
       ]);
 
       // --- LIFO SORTING (Newest First) ---
-      // Assuming 'id' increments or 'date' is reliable. Sorting by ID desc is safest for LIFO.
       const sortedSales = salesRes.data.sort((a, b) => b.id - a.id);
       
       setSalesHistory(sortedSales);
@@ -61,7 +60,7 @@ const Sales = () => {
   const currentHistory = salesHistory.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(salesHistory.length / itemsPerPage);
 
-  // --- SELECTION LOGIC (NEW) ---
+  // --- SELECTION LOGIC ---
   const handleSelect = (id) => {
     if (selectedIds.includes(id)) {
         setSelectedIds(selectedIds.filter(itemId => itemId !== id));
@@ -75,33 +74,29 @@ const Sales = () => {
     const allSelected = currentIds.every(id => selectedIds.includes(id));
 
     if (allSelected) {
-        // Unselect current page items
         setSelectedIds(selectedIds.filter(id => !currentIds.includes(id)));
     } else {
-        // Add unique current page items
         const newIds = [...new Set([...selectedIds, ...currentIds])];
         setSelectedIds(newIds);
     }
   };
 
-  // --- DELETE LOGIC (NEW) ---
+  // --- DELETE LOGIC ---
   const handleDelete = async (idsToDelete) => {
-    if (!window.confirm(`Are you sure you want to delete ${idsToDelete.length} record(s)?\nThis implies stock correction.`)) return;
+    if (!window.confirm(`Are you sure you want to delete ${idsToDelete.length} record(s)?\nStock will NOT be automatically restored (unless backend supports it).`)) return;
     
     setLoading(true);
     try {
-        // Delete items one by one (Backend likely doesn't have bulk delete yet)
         await Promise.all(idsToDelete.map(id => 
             axios.delete(`https://dairy-erp-backend.onrender.com/api/sales/${id}`)
         ));
 
-        // Update Local State (LIFO maintained by filter)
         setSalesHistory(prev => prev.filter(item => !idsToDelete.includes(item.id)));
         setSelectedIds(prev => prev.filter(id => !idsToDelete.includes(id)));
         alert("Records deleted successfully.");
     } catch (err) {
         console.error(err);
-        alert("Failed to delete. Backend might not support deletion yet.");
+        alert("Failed to delete records.");
     } finally {
         setLoading(false);
     }
@@ -123,39 +118,105 @@ const Sales = () => {
     setShowInvoice(true);
   };
 
-  // ... (Retail & Wholesale Logic remains same as previous code) ...
+  // ==============================
+  // 1. RETAIL POS LOGIC (WITH STOCK VALIDATION)
+  // ==============================
   const addToCart = (product) => {
+    // Check global stock
+    if (product.stock <= 0) {
+        alert("Out of Stock!");
+        return;
+    }
+
     const existing = cart.find(item => item.id === product.id);
-    if (existing) setCart(cart.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item));
-    else setCart([...cart, { ...product, qty: 1 }]); 
+    const currentQtyInCart = existing ? existing.qty : 0;
+
+    // Check if adding 1 exceeds stock
+    if (currentQtyInCart + 1 > product.stock) {
+        alert(`Cannot add more. Only ${product.stock} available.`);
+        return;
+    }
+
+    if (existing) {
+      setCart(cart.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item));
+    } else {
+      setCart([...cart, { ...product, qty: 1 }]); 
+    }
   };
+
   const updateCartQty = (id, delta) => {
-    setCart(cart.map(item => { if (item.id === id) { const newQty = parseFloat((item.qty + delta).toFixed(3)); return { ...item, qty: Math.max(0.05, newQty) }; } return item; }));
+    setCart(cart.map(item => {
+      if (item.id === id) {
+        const productInfo = products.find(p => p.id === id);
+        const maxStock = productInfo ? productInfo.stock : 0;
+        const newQty = parseFloat((item.qty + delta).toFixed(3));
+        
+        // Prevent going above stock
+        if (newQty > maxStock) return item;
+
+        return { ...item, qty: Math.max(0.05, newQty) };
+      }
+      return item;
+    }));
   };
-  const setExactQty = (id, val) => setCart(cart.map(item => item.id === id ? { ...item, qty: parseFloat(val) } : item));
+
+  const setExactQty = (id, val) => {
+    const qty = parseFloat(val);
+    const productInfo = products.find(p => p.id === id);
+    if(productInfo && qty > productInfo.stock) {
+        alert(`Exceeds stock! Max: ${productInfo.stock}`);
+        return;
+    }
+    setCart(cart.map(item => item.id === id ? { ...item, qty: qty } : item));
+  };
+
   const removeFromCart = (id) => setCart(cart.filter(item => item.id !== id));
+
   const checkoutRetail = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
     setLoading(true);
     try {
       for (const item of cart) {
         await axios.post('https://dairy-erp-backend.onrender.com/api/sales', {
-            customerName: "Local Counter", productName: item.name, quantity: item.qty, rate: item.sellingPrice, date: new Date().toISOString().split('T')[0]
+            customerName: "Local Counter", 
+            productName: item.name, 
+            quantity: item.qty, 
+            rate: item.sellingPrice, 
+            date: new Date().toISOString().split('T')[0]
         });
       }
       alert("Sale Saved Successfully!"); 
-      setCart([]); fetchData(); 
-    } catch (err) { alert("Error processing sale."); } finally { setLoading(false); }
+      setCart([]); 
+      fetchData(); 
+    } catch (err) { 
+        alert(err.response?.data?.error || "Error processing sale."); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
+  // ==============================
+  // 2. WHOLESALE BILLING LOGIC
+  // ==============================
   const addItemToBill = (e) => {
     e.preventDefault();
     if(!currentItem.productName || !currentItem.quantity || !currentItem.rate) return alert("Fill all fields");
+    
+    // Stock Validation
+    const prod = products.find(p => p.name === currentItem.productName);
+    const stock = prod ? prod.stock : 0;
+    if (parseFloat(currentItem.quantity) > stock) {
+        alert(`Insufficient Stock! Available: ${stock}`);
+        return;
+    }
+
     const lineTotal = parseFloat(currentItem.quantity) * parseFloat(currentItem.rate);
     setBillItems([...billItems, { ...currentItem, total: lineTotal, id: Date.now() }]);
     setCurrentItem({ productName: '', quantity: '', rate: '' }); 
   };
+
   const removeBillItem = (id) => setBillItems(billItems.filter(item => item.id !== id));
+  
   const finalizeWholesaleBill = async () => {
     if(!customerName || billItems.length === 0) return alert("Missing details");
     setLoading(true);
@@ -169,6 +230,7 @@ const Sales = () => {
         setShowInvoice(true); setBillItems([]); setCustomerName(""); fetchData();
     } catch (err) { alert("Error saving bill."); } finally { setLoading(false); }
   };
+
   const retailTotal = cart.reduce((acc, item) => acc + (item.qty * item.sellingPrice), 0);
   const wholesaleTotal = billItems.reduce((acc, item) => acc + item.total, 0);
 
@@ -199,18 +261,32 @@ const Sales = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 print:hidden">
             <div className="lg:col-span-2">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {products.map(p => (
-                        <div key={p.id} onClick={() => addToCart(p)} 
-                             className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:border-indigo-500 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden">
-                            <div className="flex justify-between items-start mb-2">
-                                <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded uppercase">{p.unit}</span>
-                                <span className={`text-[10px] font-bold ${p.stock > 0 ? 'text-emerald-500' : 'text-red-500'}`}>{p.stock} left</span>
+                    {products.map(p => {
+                        const isOutOfStock = p.stock <= 0;
+                        return (
+                            <div 
+                                key={p.id} 
+                                onClick={() => !isOutOfStock && addToCart(p)} 
+                                // Added outline-none to remove cursor blink
+                                className={`bg-white p-6 rounded-3xl border border-slate-200 shadow-sm transition-all relative overflow-hidden outline-none focus:outline-none ${
+                                    isOutOfStock 
+                                    ? 'opacity-60 grayscale cursor-not-allowed' 
+                                    : 'hover:border-indigo-500 hover:shadow-md cursor-pointer group'
+                                }`}
+                                tabIndex="-1"
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded uppercase">{p.unit}</span>
+                                    <span className={`text-[10px] font-bold ${p.stock > 0 ? 'text-emerald-500' : 'text-red-500'}`}>{p.stock > 0 ? `${p.stock} left` : 'Out of Stock'}</span>
+                                </div>
+                                <h3 className="text-lg font-black text-slate-800">{p.name}</h3>
+                                <p className="text-xl font-bold text-indigo-600 mt-1">₹{p.sellingPrice}</p>
+                                {!isOutOfStock && (
+                                    <div className="absolute bottom-0 right-0 p-3 bg-indigo-600 text-white rounded-tl-2xl opacity-0 group-hover:opacity-100 transition-opacity"><PlusCircle size={20} /></div>
+                                )}
                             </div>
-                            <h3 className="text-lg font-black text-slate-800">{p.name}</h3>
-                            <p className="text-xl font-bold text-indigo-600 mt-1">₹{p.sellingPrice}</p>
-                            <div className="absolute bottom-0 right-0 p-3 bg-indigo-600 text-white rounded-tl-2xl opacity-0 group-hover:opacity-100 transition-opacity"><PlusCircle size={20} /></div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
             <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-200 flex flex-col h-[650px]">
@@ -256,7 +332,7 @@ const Sales = () => {
                     <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2"><User size={12}/> Customer / Hotel Name</label><input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full p-4 bg-indigo-50/50 border-2 border-indigo-100 rounded-2xl font-bold text-indigo-900 outline-none focus:border-indigo-500" placeholder="e.g. Hotel Grand" /></div>
                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
                         <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Add Line Item</p>
-                        <select value={currentItem.productName} onChange={e => {const prod = products.find(p => p.name === e.target.value); setCurrentItem({...currentItem, productName: e.target.value, rate: prod ? prod.sellingPrice : '' });}} className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none"><option value="">-- Select Product --</option>{products.map(p => <option key={p.id} value={p.name}>{p.name} (Stock: {p.stock})</option>)}</select>
+                        <select value={currentItem.productName} onChange={e => {const prod = products.find(p => p.name === e.target.value); setCurrentItem({...currentItem, productName: e.target.value, rate: prod ? prod.sellingPrice : '' });}} className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none"><option value="">-- Select Product --</option>{products.map(p => <option key={p.id} value={p.name} disabled={p.stock <= 0}>{p.name} (Stock: {p.stock})</option>)}</select>
                         <div className="grid grid-cols-2 gap-3"><input type="number" step="0.01" placeholder="Qty" value={currentItem.quantity} onChange={e => setCurrentItem({...currentItem, quantity: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm" /><input type="number" step="0.01" placeholder="Rate" value={currentItem.rate} onChange={e => setCurrentItem({...currentItem, rate: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-indigo-600" /></div>
                         <button onClick={addItemToBill} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold text-xs hover:bg-black transition-all flex justify-center items-center gap-2"><PlusCircle size={16}/> ADD TO LIST</button>
                     </div>

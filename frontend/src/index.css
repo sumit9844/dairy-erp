@@ -12,3 +12,23 @@ body, html, #root {
   height: 100%;
   background-color: #f8fafc; /* Standard Slate 50 background */
 }
+
+/* Disable text selection on the whole app */
+body {
+  -webkit-user-select: none; /* Safari */
+  -ms-user-select: none; /* IE 10 and IE 11 */
+  user-select: none; /* Standard syntax */
+  cursor: default; /* Default arrow cursor */
+}
+
+/* Re-enable text selection for inputs so you can still type! */
+input, textarea, [contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
+/* Force hand cursor on anything clickable */
+button, a, .cursor-pointer {
+  cursor: pointer;
+}
