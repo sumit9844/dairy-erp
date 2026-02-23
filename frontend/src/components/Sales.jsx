@@ -390,40 +390,62 @@ const Sales = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {currentHistory.map(s => (
-                            <tr key={s.id} className={`transition-colors group ${selectedIds.includes(s.id) ? 'bg-indigo-50' : 'hover:bg-slate-50/80'}`}>
-                                {/* ROW CHECKBOX */}
-                                <td className="px-6 py-5">
-                                    <button onClick={() => handleSelect(s.id)} className={`${selectedIds.includes(s.id) ? 'text-indigo-600' : 'text-slate-300'}`}>
-                                        {selectedIds.includes(s.id) ? <CheckSquare size={18}/> : <Square size={18}/>}
-                                    </button>
-                                </td>
-                                <td className="px-6 py-5 text-xs font-bold text-slate-500">{new Date(s.date).toLocaleDateString()}</td>
-                                <td className="px-6 py-5 font-black text-slate-800 uppercase">{s.customerName}</td>
-                                <td className="px-6 py-5 text-sm font-medium text-slate-600">
-                                    {s.quantity} {s.productName ? `x ${s.productName}` : 'x Item'}
-                                </td>
-                                <td className="px-6 py-5 text-center font-bold text-indigo-600">{s.quantity.toFixed(2)}</td>
-                                <td className="px-6 py-5 text-right font-black text-emerald-600">₹{s.totalAmount.toLocaleString()}</td>
-                                <td className="px-6 py-5 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button 
-                                            onClick={() => handleReprint(s)}
-                                            className="p-2 bg-slate-100 rounded-full hover:bg-blue-100 hover:text-blue-600 transition-all text-slate-400"
-                                            title="Reprint Receipt"
-                                        >
-                                            <Printer size={16} />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDelete([s.id])}
-                                            className="p-2 bg-slate-100 rounded-full hover:bg-red-100 hover:text-red-600 transition-all text-slate-400"
-                                            title="Delete Entry"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+    <tr key={s.id} className={`transition-colors group ${selectedIds.includes(s.id) ? 'bg-indigo-50' : 'hover:bg-slate-50/80'}`}>
+        
+        {/* 1. CHECKBOX */}
+        <td className="px-6 py-5">
+            <button onClick={() => handleSelect(s.id)} className={`${selectedIds.includes(s.id) ? 'text-indigo-600' : 'text-slate-300'}`}>
+                {selectedIds.includes(s.id) ? <CheckSquare size={18}/> : <Square size={18}/>}
+            </button>
+        </td>
+
+        {/* 2. DATE */}
+        <td className="px-6 py-5 text-xs font-bold text-slate-500">
+            {new Date(s.date).toLocaleDateString()}
+        </td>
+
+        {/* 3. CUSTOMER */}
+        <td className="px-6 py-5 font-black text-slate-800 uppercase">
+            {s.customerName}
+        </td>
+
+        {/* 4. PRODUCT (UPDATED VISUALS) */}
+        <td className="px-6 py-5">
+            <div className="flex flex-col">
+                {/* Show Product Name BIG and BOLD */}
+                <span className="font-black text-slate-800 text-sm uppercase">
+                    {s.productName || "Unknown Product"}
+                </span>
+                {/* Show Quantity small underneath */}
+                <span className="text-[10px] font-bold text-slate-400">
+                    Quantity: {s.quantity}
+                </span>
+            </div>
+        </td>
+
+        {/* 5. VOLUME (Just the number) */}
+        <td className="px-6 py-5 text-center font-bold text-indigo-600">
+            {s.quantity}
+        </td>
+
+        {/* 6. REVENUE */}
+        <td className="px-6 py-5 text-right font-black text-emerald-600">
+            ₹{s.totalAmount.toLocaleString()}
+        </td>
+
+        {/* 7. ACTIONS */}
+        <td className="px-6 py-5 text-right">
+            <div className="flex justify-end gap-2">
+                <button onClick={() => handleReprint(s)} className="p-2 bg-slate-100 rounded-full hover:bg-blue-100 hover:text-blue-600 transition-all text-slate-400">
+                    <Printer size={16} />
+                </button>
+                <button onClick={() => handleDelete([s.id])} className="p-2 bg-slate-100 rounded-full hover:bg-red-100 hover:text-red-600 transition-all text-slate-400">
+                    <Trash2 size={16} />
+                </button>
+            </div>
+        </td>
+    </tr>
+))}
                     </tbody>
                 </table>
                 
