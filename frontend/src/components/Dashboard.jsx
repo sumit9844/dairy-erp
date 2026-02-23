@@ -7,14 +7,13 @@ import {
 } from 'recharts';
 import { 
   TrendingUp, Users, Droplets, IndianRupee, 
-  Package, ArrowUpRight, ArrowDownRight, Activity, Calendar, Wallet, FlaskConical, Filter
+  Package, ArrowUpRight, ArrowDownRight, Activity, Calendar, Wallet, FlaskConical, AlertTriangle, RefreshCw
 } from 'lucide-react';
 
 const Dashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // State for Filters
+  const [error, setError] = useState(false); // Track error state
   const [timeRange, setTimeRange] = useState('today');
   const [customDate, setCustomDate] = useState(''); 
 
@@ -24,15 +23,31 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     setLoading(true);
+    setError(false);
+
+    // 1. Safety Timeout: If backend takes > 15s, show Retry button
+    const timeoutId = setTimeout(() => {
+        setLoading(false);
+        setError(true);
+    }, 15000);
+
     try {
-      let url = `https://dairy-erp-backend.onrender.com/api/dashboard/stats?range=${timeRange}`;
+      // 2. Build URL based on environment (Local vs Cloud)
+      const baseUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:5000' 
+        : 'https://dairy-erp-backend.onrender.com';
+
+      let url = `${baseUrl}/api/dashboard/stats?range=${timeRange}`;
       if (customDate) {
-        url = `https://dairy-erp-backend.onrender.com/api/dashboard/stats?customDate=${customDate}`;
+        url = `${baseUrl}/api/dashboard/stats?customDate=${customDate}`;
       }
+      
       const res = await axios.get(url);
+      clearTimeout(timeoutId); // Success! Stop the timer.
       setData(res.data);
     } catch (err) {
       console.error(err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -48,11 +63,39 @@ const Dashboard = () => {
     setTimeRange('custom');
   };
 
-  if (loading) return <div className="p-20 text-center font-bold text-slate-400 animate-pulse">ANALYZING DATA...</div>;
-  
-  // Safety Check
-  if (!data || !data.milk || !data.finance) return <div className="p-20 text-center text-red-400">Data Unavailable</div>;
+  // --- LOADING VIEW ---
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center h-[60vh] space-y-4 animate-in fade-in">
+        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-center">
+            <p className="text-slate-800 font-black text-xl tracking-tight">ANALYZING DATA...</p>
+            <p className="text-slate-400 text-sm font-bold mt-1">Waking up secure server...</p>
+        </div>
+    </div>
+  );
 
+  // --- ERROR / TIMEOUT VIEW ---
+  if (error || !data) return (
+    <div className="flex flex-col items-center justify-center h-[60vh] space-y-6 animate-in zoom-in">
+        <div className="bg-red-50 p-6 rounded-full border border-red-100 shadow-sm">
+            <AlertTriangle size={48} className="text-red-500" />
+        </div>
+        <div className="text-center max-w-md">
+            <h3 className="text-2xl font-black text-slate-800">Connection Delayed</h3>
+            <p className="text-slate-500 mt-2 font-medium">
+                The free cloud server is "waking up". Please click below to try again.
+            </p>
+        </div>
+        <button 
+            onClick={() => fetchData()} 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black shadow-xl transition-all active:scale-95 flex items-center gap-2"
+        >
+            <RefreshCw size={20} /> RETRY CONNECTION
+        </button>
+    </div>
+  );
+
+  // --- MAIN DASHBOARD ---
   const chartData = data.trends?.map(item => ({
     ...item,
     bsDate: formatBS(item.date),
@@ -97,58 +140,21 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* 2. KPI CARDS (5 COLUMNS NOW) */}
+      {/* 2. KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-        
-        {/* NEW CARD: TOTAL MILK (BLUE) */}
-        <MetricCard 
-            title={`Collection (${customDate ? 'Day' : timeRange})`} 
-            value={`${(data.milk.totalLiters ?? 0).toFixed(1)} L`} 
-            icon={<Droplets />} 
-            color="blue" 
-        />
-
-        <MetricCard 
-            title="Procurement Cost" 
-            value={`₹${(data.milk.totalCost ?? 0).toLocaleString()}`} 
-            icon={<IndianRupee />} 
-            color="orange" 
-        />
-        
-        <MetricCard 
-            title="Total Revenue" 
-            value={`₹${(data.finance.revenue ?? 0).toLocaleString()}`} 
-            icon={<TrendingUp />} 
-            color="indigo" 
-        />
-        
-        <MetricCard 
-            title="Net Profit" 
-            value={`₹${(data.finance.netProfit ?? 0).toLocaleString()}`} 
-            icon={<Activity />} 
-            color={(data.finance.netProfit ?? 0) >= 0 ? "emerald" : "red"} 
-            isProfit={true} 
-        />
-
-        <MetricCard 
-            title="Avg Quality" 
-            value={`F:${(data.milk.avgFat ?? 0).toFixed(1)} / S:${(data.milk.avgSnf ?? 0).toFixed(1)}`} 
-            icon={<FlaskConical />} 
-            color="purple" 
-        />
+        <MetricCard title={`Collection (${customDate ? 'Day' : timeRange})`} value={`${(data.milk.totalLiters ?? 0).toFixed(1)} L`} icon={<Droplets />} color="blue" />
+        <MetricCard title="Procurement Cost" value={`₹${(data.milk.totalCost ?? 0).toLocaleString()}`} icon={<IndianRupee />} color="orange" />
+        <MetricCard title="Total Revenue" value={`₹${(data.finance.revenue ?? 0).toLocaleString()}`} icon={<TrendingUp />} color="indigo" />
+        <MetricCard title="Net Profit" value={`₹${(data.finance.netProfit ?? 0).toLocaleString()}`} icon={<Activity />} color={(data.finance.netProfit ?? 0) >= 0 ? "emerald" : "red"} isProfit={true} />
+        <MetricCard title="Avg Quality" value={`F:${(data.milk.avgFat ?? 0).toFixed(1)} / S:${(data.milk.avgSnf ?? 0).toFixed(1)}`} icon={<FlaskConical />} color="purple" />
       </div>
 
       {/* 3. TRENDS & FINANCIAL SUMMARY */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* CHART */}
         <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
           <div className="flex justify-between items-center mb-8">
             <div>
                 <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Collection Trend</h3>
-                <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">
-                    {customDate ? `Specific Date: ${customDate}` : `Timeline: Last ${timeRange}`}
-                </p>
             </div>
             <span className="text-[10px] bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-bold">LITERS</span>
           </div>
@@ -206,7 +212,7 @@ const Dashboard = () => {
 
         <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
             <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
-                <Package size={16}/> Inventory Levels
+                <Package size={16}/> Inventory
             </h3>
             <div className="grid grid-cols-3 gap-4">
                 {data.inventory?.map((item, i) => (
@@ -217,7 +223,6 @@ const Dashboard = () => {
                         </p>
                     </div>
                 ))}
-                {(!data.inventory || data.inventory.length === 0) && <p className="text-xs text-slate-400 italic col-span-3">No stock data available</p>}
             </div>
         </div>
       </div>
